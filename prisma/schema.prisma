@@ -62,11 +62,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  cars         Car[]
-  chatSessions ChatSession[]
-  reminders    MaintenanceReminder[]
+  accounts       Account[]
+  sessions       Session[]
+  cars           Car[]
+  chatSessions   ChatSession[]
+  reminders      MaintenanceReminder[]
+  serviceRecords ServiceRecord[]
 }
 
 model Car {
@@ -76,7 +77,10 @@ model Car {
   model             String
   year              Int
   licensePlate      String?
+  vin               String?
   currentKm         Int      @default(0)
+  dailyKmAvg        Int      @default(35)
+  healthScore       Int      @default(90)
   fuelType          String   @default("petrol")
   transmission      String   @default("auto")
   color             String?
@@ -87,11 +91,28 @@ model Car {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chatSessions ChatSession[]
-  reminders    MaintenanceReminder[]
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatSessions   ChatSession[]
+  reminders      MaintenanceReminder[]
+  serviceRecords ServiceRecord[]
 }
 
+model ServiceRecord {
+  id          String   @id @default(cuid())
+  carId       String
+  userId      String
+  serviceDate DateTime @default(now())
+  odometerKm  Int
+  serviceName String
+  garageName  String?
+  cost        Float?
+  invoiceUrl  String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
 model ChatSession {
   id        String   @id @default(cuid())
@@ -133,3 +154,4 @@ model MaintenanceReminder {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
 }
+

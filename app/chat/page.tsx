@@ -61,10 +61,50 @@ function ChatContent() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], `tieng-dong-xe-${Date.now()}.webm`, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('file', file);
+        setIsUploading(true);
+        try {
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (res.ok) {
+            const data = await res.json();
+            setAttachments(prev => [...prev, data]);
+          }
+        } catch {}
+        setIsUploading(false);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch {
+      alert('Không thể truy cập Micro. Vui lòng cấp quyền Micro trên điện thoại/máy tính của bạn!');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
 
   // 1. Initial Load & Persistence Sync
   useEffect(() => {
@@ -625,21 +665,47 @@ function ChatContent() {
                   border: 'none',
                   fontSize: 22,
                   cursor: 'pointer',
-                  padding: '8px 10px',
+                  padding: '8px 6px',
                   color: 'var(--text-2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minWidth: 44,
+                  minWidth: 40,
                   minHeight: 44,
                   userSelect: 'none',
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation',
                 }}
-                title="Tải ảnh, âm thanh, video hoặc file hóa đơn"
+                title="Tải ảnh, video hoặc file hóa đơn"
               >
                 {isUploading ? '⏳' : '📎'}
               </label>
+
+              {/* Live Voice Recorder Button */}
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                style={{
+                  background: isRecording ? 'rgba(239,68,68,0.2)' : 'none',
+                  border: isRecording ? '1px solid #EF4444' : 'none',
+                  borderRadius: 8,
+                  fontSize: 20,
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  color: isRecording ? '#EF4444' : 'var(--text-2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 40,
+                  minHeight: 44,
+                  userSelect: 'none',
+                  animation: isRecording ? 'pulse 1.2s infinite' : 'none',
+                }}
+                title={isRecording ? 'Bấm để dừng ghi âm tiếng máy nổ/tiếng rít' : 'Thu âm tiếng động lạ động cơ'}
+              >
+                {isRecording ? '🔴 Dừng' : '🎙️'}
+              </button>
+
 
               <textarea
                 ref={textareaRef}
