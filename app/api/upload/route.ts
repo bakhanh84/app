@@ -18,7 +18,6 @@ function getFileCategory(mimeType: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  // Allow non-authenticated uploads but tag with session if available
   const session = await auth();
   const userId = session?.user?.id || 'guest';
 
@@ -42,24 +41,30 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
+  const base64Data = buffer.toString('base64');
+  const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-  // Create upload dir
-  const uploadDir = join(process.cwd(), 'public', 'uploads', userId);
-  await mkdir(uploadDir, { recursive: true });
+  let publicUrl = dataUrl;
 
-  // Unique filename
-  const ext = file.name.split('.').pop() || 'bin';
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const filepath = join(uploadDir, filename);
-
-  await writeFile(filepath, buffer);
-
-  const url = `/uploads/${userId}/${filename}`;
+  // Attempt to write to public/uploads for local development (fail silently on Vercel read-only filesystem)
+  try {
+    const uploadDir = join(process.cwd(), 'public', 'uploads', userId);
+    await mkdir(uploadDir, { recursive: true });
+    const ext = file.name.split('.').pop() || 'bin';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const filepath = join(uploadDir, filename);
+    await writeFile(filepath, buffer);
+    publicUrl = `/uploads/${userId}/${filename}`;
+  } catch {
+    // On Vercel serverless environment, fallback to dataUrl
+    publicUrl = dataUrl;
+  }
 
   return NextResponse.json({
-    url,
+    url: publicUrl,
     name: file.name,
     type: category,
     mimeType,
+    base64: base64Data,
   });
 }

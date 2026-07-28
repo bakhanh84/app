@@ -11,7 +11,9 @@ interface Attachment {
   name: string;
   type: string;
   mimeType: string;
+  base64?: string;
 }
+
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -49,25 +51,39 @@ export async function POST(request: Request) {
 
     if (attachments && attachments.length > 0) {
       for (const att of attachments) {
-        try {
-          // Read file from disk
-          const relPath = att.url.replace('/uploads/', '');
-          const filePath = join(process.cwd(), 'public', 'uploads', relPath);
-          const fileData = await readFile(filePath);
-          const base64 = fileData.toString('base64');
+        let base64Data = att.base64;
 
+        // If att.url is a data URL (e.g. data:image/png;base64,xxxx)
+        if (!base64Data && att.url && att.url.startsWith('data:')) {
+          const parts = att.url.split(',');
+          if (parts.length > 1) {
+            base64Data = parts[1];
+          }
+        }
+
+        // Fallback: Read file from disk if local relative path
+        if (!base64Data && att.url && att.url.startsWith('/uploads/')) {
+          try {
+            const relPath = att.url.replace('/uploads/', '');
+            const filePath = join(process.cwd(), 'public', 'uploads', relPath);
+            const fileData = await readFile(filePath);
+            base64Data = fileData.toString('base64');
+          } catch {}
+        }
+
+        if (base64Data) {
           parts.push({
             inlineData: {
               mimeType: att.mimeType,
-              data: base64,
+              data: base64Data,
             },
           } as Part);
-        } catch {
-          // If file read fails, just add a text note
+        } else {
           parts.push({ text: `[Đính kèm: ${att.name}]` });
         }
       }
     }
+
 
     const chat = model.startChat({ history });
     const result = await chat.sendMessageStream(parts);
