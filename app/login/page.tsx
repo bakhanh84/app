@@ -23,9 +23,10 @@ export default function LoginPage() {
           }).catch(() => {});
         } catch {}
       }
-      router.replace('/chat');
+      window.location.href = '/chat';
     }
-  }, [status, router]);
+  }, [status]);
+
 
   const handleGoogleSignIn = () => {
     setIsSigningIn(true);

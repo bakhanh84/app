@@ -20,6 +20,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/login',
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.includes('/login') || url === baseUrl || url === `${baseUrl}/`) {
+        return `${baseUrl}/chat`;
+      }
+      return url.startsWith(baseUrl) ? url : `${baseUrl}/chat`;
+    },
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
