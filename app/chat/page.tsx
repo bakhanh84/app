@@ -49,10 +49,12 @@ function ChatContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionIdParam = searchParams.get('sessionId');
+  const carIdParam = searchParams.get('carId');
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionIdParam);
   const [sessionList, setSessionList] = useState<ChatSessionSummary[]>([]);
+  const [userCars, setUserCars] = useState<CarProfile[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [theme, setTheme] = useState<AITheme>('pro');
@@ -62,6 +64,7 @@ function ChatContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
 
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -122,7 +125,9 @@ function ChatContent() {
         .then(res => res.json())
         .then(dbCars => {
           if (Array.isArray(dbCars) && dbCars.length > 0) {
-            const activeCar = dbCars[0];
+            setUserCars(dbCars);
+            const matchedCar = carIdParam ? dbCars.find((c: any) => c.id === carIdParam) : undefined;
+            const activeCar = matchedCar || dbCars[0];
             setCar(activeCar);
             localStorage.setItem('sparkgo_car', JSON.stringify(activeCar));
           } else if (savedCar) {
@@ -137,6 +142,7 @@ function ChatContent() {
           }
         })
         .catch(() => {});
+
 
       fetch('/api/sessions')
         .then(res => res.json())
@@ -464,9 +470,44 @@ function ChatContent() {
             </div>
           </div>
 
-          {/* Car Info */}
+          {/* Car Info & Quick Fleet Switcher */}
           {car ? (
             <div className="car-info-card">
+              {/* Quick Car Selector if user has multiple cars */}
+              {userCars.length > 1 && (
+                <div style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-3)', marginBottom: 4 }}>
+                    🚘 ĐỔI XE ĐANG TƯ VẤN ({userCars.length}/5):
+                  </div>
+                  <select
+                    value={(car as any)?.id || ''}
+                    onChange={e => {
+                      const selected = userCars.find((c: any) => c.id === e.target.value);
+                      if (selected) {
+                        setCar(selected);
+                        localStorage.setItem('sparkgo_car', JSON.stringify(selected));
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      background: 'var(--bg-surface)',
+                      color: 'var(--text-1)',
+                      border: '1px solid var(--border)',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {userCars.map((c: any) => (
+                      <option key={c.id || c.model} value={c.id}>
+                        🚗 {c.brand} {c.model} ({c.year})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="car-info-card-header">
                 <div className="car-info-icon">🚗</div>
                 <div>
@@ -474,6 +515,7 @@ function ChatContent() {
                   <div className="car-info-year">{car.year}</div>
                 </div>
               </div>
+
               {[
                 { label: 'Số km', value: `${car.currentKm.toLocaleString('vi-VN')} km` },
                 { label: 'Nhiên liệu', value: car.fuelType === 'petrol' ? 'Xăng' : car.fuelType === 'diesel' ? 'Diesel' : car.fuelType === 'hybrid' ? 'Hybrid' : 'Điện' },

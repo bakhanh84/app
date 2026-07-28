@@ -1,24 +1,36 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import { getCarImageUrl, getCarHealthStatus } from '@/lib/car-images';
 
 export default function LandingPage() {
   const { data: session } = useSession();
   const [theme, setTheme] = useState<'pro' | 'friendly'>('pro');
+  const [userCars, setUserCars] = useState<any[]>([]);
+  const [loadingCars, setLoadingCars] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('sparkgo_theme') as 'pro' | 'friendly' | null;
     if (saved) setTheme(saved);
-  }, []);
+
+    if (session?.user) {
+      setLoadingCars(true);
+      fetch('/api/cars')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setUserCars(data);
+          setLoadingCars(false);
+        })
+        .catch(() => setLoadingCars(false));
+    }
+  }, [session]);
 
   const switchTheme = (t: 'pro' | 'friendly') => {
     setTheme(t);
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('sparkgo_theme', t);
   };
-
-  const hasCar = typeof window !== 'undefined' && !!localStorage.getItem('sparkgo_car');
 
   return (
     <>
@@ -46,6 +58,9 @@ export default function LandingPage() {
 
           {session?.user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link href="/garage" className="btn btn-outline btn-sm">
+                🚘 Gara Xe
+              </Link>
               <Link href="/chat" className="btn btn-primary btn-sm">
                 💬 Vào Chat AI
               </Link>
@@ -70,6 +85,119 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      {/* Logged-In User Fleet Showcase Section */}
+      {session?.user && userCars.length > 0 && (
+        <section style={{ paddingTop: 'calc(var(--nav-height) + 24px)', paddingBottom: 12, maxWidth: 1100, margin: '0 auto', paddingLeft: 20, paddingRight: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--accent-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                XIN CHÀO {session.user.name?.toUpperCase() || 'CHỦ XE'}!
+              </div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-1)' }}>
+                🚘 Đội Xe Của Tôi ({userCars.length}/5 xe)
+              </h2>
+            </div>
+
+            {userCars.length < 5 && (
+              <Link href="/onboarding" className="btn btn-outline btn-sm">
+                + Thêm xe mới ({userCars.length}/5)
+              </Link>
+            )}
+          </div>
+
+          {/* Fleet Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 20 }}>
+            {userCars.map(car => {
+              const imgUrl = getCarImageUrl(car.brand, car.model);
+              const health = getCarHealthStatus(car.currentKm, car.lastOilChangeKm, car.lastOilChangeDate);
+
+              return (
+                <div key={car.id} className="card animate-fadeInUp" style={{
+                  padding: 0,
+                  overflow: 'hidden',
+                  border: `1px solid ${health.borderColor}`,
+                  background: 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}>
+                  {/* Car Image Visual & Status Overlay */}
+                  <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
+                    <img src={imgUrl} alt={car.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      background: health.bgColor,
+                      backdropFilter: 'blur(10px)',
+                      border: `1px solid ${health.borderColor}`,
+                      color: health.color,
+                      padding: '4px 10px',
+                      borderRadius: 100,
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}>
+                      <span>{health.icon}</span>
+                      <span>{health.label}</span>
+                    </div>
+
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)',
+
+                      padding: '16px 16px 8px',
+                    }}>
+                      <div style={{ fontWeight: 900, fontSize: '1.2rem', color: '#FFFFFF' }}>
+                        {car.brand} {car.model}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>
+                        Năm {car.year} {car.licensePlate ? `· Biển ${car.licensePlate}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body Info */}
+                  <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 10 }}>
+                        <span style={{ color: 'var(--text-3)' }}>Số km hiện tại:</span>
+                        <span style={{ fontWeight: 800, color: 'var(--accent-light)' }}>
+                          {(car.currentKm || 0).toLocaleString('vi-VN')} km
+                        </span>
+                      </div>
+
+                      {/* Issue Pills */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                        {health.issues.map((iss, i) => (
+                          <div key={i} style={{ fontSize: '0.78rem', color: health.color, background: health.bgColor, padding: '4px 8px', borderRadius: 6 }}>
+                            {iss}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Link href={`/chat?carId=${car.id}`} className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
+                        💬 Chat AI xe này
+                      </Link>
+                      <Link href="/garage" className="btn btn-outline btn-sm">
+                        📁 Gara
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Hero */}
       <section className="hero">
         <div className="hero-bg" />
@@ -93,7 +221,7 @@ export default function LandingPage() {
             <div className="hero-actions">
               {session?.user ? (
                 <Link href="/chat" className="btn btn-primary btn-lg">
-                  💬 Tiếp tục trao đổi với AI Thợ Xe →
+                  💬 Vào Phòng Chat AI Thợ Xe →
                 </Link>
               ) : (
                 <>

@@ -51,7 +51,20 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(updated);
   } else {
+    // Check max 5 cars limit
+    const currentCarsCount = await db.car.count({
+      where: { userId: session.user.id, isActive: true },
+    });
+
+    if (currentCarsCount >= 5) {
+      return NextResponse.json(
+        { error: 'Tài khoản của bạn đã đạt giới hạn tối đa 5 xe ô tô. Vui lòng xóa bớt xe cũ để thêm xe mới.' },
+        { status: 400 }
+      );
+    }
+
     const newCar = await db.car.create({
+
       data: {
         userId: session.user.id,
         brand,
