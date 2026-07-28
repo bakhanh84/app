@@ -108,6 +108,18 @@ function ChatContent() {
     }
   };
 
+  const handleSignOut = async () => {
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sparkgo_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    await signOut({ callbackUrl: '/' });
+  };
+
+
 
   // 1. Initial Load & Persistence Sync
   useEffect(() => {
@@ -436,7 +448,8 @@ function ChatContent() {
                   {session.user.name?.[0] || 'U'}
                 </div>
               )}
-              <button onClick={() => signOut()} className="btn btn-outline btn-sm">Thoát</button>
+              <button onClick={handleSignOut} className="btn btn-outline btn-sm">🚪 Thoát</button>
+
             </div>
           ) : (
             <Link href="/login" className="btn btn-primary btn-sm">🔑 Đăng nhập</Link>

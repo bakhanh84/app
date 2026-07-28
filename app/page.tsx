@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { getCarImageUrl, getCarHealthStatus } from '@/lib/car-images';
 
 export default function LandingPage() {
@@ -9,6 +9,18 @@ export default function LandingPage() {
   const [theme, setTheme] = useState<'pro' | 'friendly'>('pro');
   const [userCars, setUserCars] = useState<any[]>([]);
   const [loadingCars, setLoadingCars] = useState(false);
+
+  const handleSignOut = async () => {
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sparkgo_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    await signOut({ callbackUrl: '/' });
+  };
+
 
   useEffect(() => {
     const saved = localStorage.getItem('sparkgo_theme') as 'pro' | 'friendly' | null;
@@ -71,8 +83,12 @@ export default function LandingPage() {
                   {session.user.name?.[0] || 'U'}
                 </div>
               )}
+              <button onClick={handleSignOut} className="btn btn-outline btn-sm">
+                🚪 Thoát
+              </button>
             </div>
           ) : (
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Link href="/login" className="btn btn-outline btn-sm">
                 🔑 Đăng nhập / Đăng ký
