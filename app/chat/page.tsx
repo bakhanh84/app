@@ -119,7 +119,7 @@ function ChatContent() {
       try { setCar(JSON.parse(savedCar)); } catch { /* ignore */ }
     }
 
-    // If user is authenticated, sync car & session list from DB
+    // If user is authenticated, sync car & session list from DB strictly by activeCar.id
     if (session?.user) {
       fetch('/api/cars')
         .then(res => res.json())
@@ -130,6 +130,39 @@ function ChatContent() {
             const activeCar = matchedCar || dbCars[0];
             setCar(activeCar);
             localStorage.setItem('sparkgo_car', JSON.stringify(activeCar));
+
+            // Fetch sessions SPECIFICALLY for activeCar
+            if (!sessionIdParam && activeCar.id) {
+              fetch(`/api/sessions?carId=${activeCar.id}`)
+                .then(res => res.json())
+                .then(carSessions => {
+                  if (Array.isArray(carSessions) && carSessions.length > 0) {
+                    setSessionList(carSessions);
+                    const latestSession = carSessions[0];
+                    setCurrentSessionId(latestSession.id);
+                    fetch(`/api/sessions?id=${latestSession.id}`)
+                      .then(r => r.json())
+                      .then(sData => {
+                        if (sData?.messages && sData.messages.length > 0) {
+                          const formatted: Message[] = sData.messages.map((m: any) => ({
+                            id: m.id,
+                            role: m.role,
+                            content: m.content,
+                            attachments: m.attachments ? JSON.parse(m.attachments) : undefined,
+                          }));
+                          setMessages(formatted);
+                        }
+                      })
+                      .catch(() => {});
+                  } else {
+                    // No sessions for this car -> Clean welcome screen
+                    setSessionList([]);
+                    setCurrentSessionId(null);
+                    setMessages([]);
+                  }
+                })
+                .catch(() => {});
+            }
           } else if (savedCar) {
             // Push local car to DB
             try {
@@ -142,35 +175,8 @@ function ChatContent() {
           }
         })
         .catch(() => {});
-
-
-      fetch('/api/sessions')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            setSessionList(data);
-            // If no specific session requested in URL, auto-load latest DB session!
-            if (!sessionIdParam) {
-              const latestSession = data[0];
-              setCurrentSessionId(latestSession.id);
-              fetch(`/api/sessions?id=${latestSession.id}`)
-                .then(r => r.json())
-                .then(sData => {
-                  if (sData?.messages && sData.messages.length > 0) {
-                    const formatted: Message[] = sData.messages.map((m: any) => ({
-                      id: m.id,
-                      role: m.role,
-                      content: m.content,
-                      attachments: m.attachments ? JSON.parse(m.attachments) : undefined,
-                    }));
-                    setMessages(formatted);
-                  }
-                }).catch(() => {});
-            }
-          }
-        })
-        .catch(() => {});
     }
+
 
     // Load active session from URL if explicitly provided
     if (sessionIdParam) {

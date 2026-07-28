@@ -117,8 +117,13 @@ export async function POST(request: Request) {
                   : message;
                 await db.chatSession.update({
                   where: { id: sessionId },
-                  data: { title, updatedAt: new Date() },
+                  data: {
+                    title,
+                    updatedAt: new Date(),
+                    ...(car?.id ? { carId: car.id } : {}),
+                  },
                 });
+
               } else {
                 await db.chatSession.update({
                   where: { id: sessionId },
