@@ -486,8 +486,43 @@ function ChatContent() {
                       if (selected) {
                         setCar(selected);
                         localStorage.setItem('sparkgo_car', JSON.stringify(selected));
+
+                        // Fetch sessions for this selected car
+                        if (session?.user && selected.id) {
+                          fetch(`/api/sessions?carId=${selected.id}`)
+                            .then(res => res.json())
+                            .then(carSessions => {
+                              if (Array.isArray(carSessions) && carSessions.length > 0) {
+                                setSessionList(carSessions);
+                                const latest = carSessions[0];
+                                setCurrentSessionId(latest.id);
+                                fetch(`/api/sessions?id=${latest.id}`)
+                                  .then(r => r.json())
+                                  .then(sData => {
+                                    if (sData?.messages) {
+                                      const formatted: Message[] = sData.messages.map((m: any) => ({
+                                        id: m.id,
+                                        role: m.role,
+                                        content: m.content,
+                                        attachments: m.attachments ? JSON.parse(m.attachments) : undefined,
+                                      }));
+                                      setMessages(formatted);
+                                    }
+                                  });
+                              } else {
+                                // No sessions for this car yet -> Show clean welcome screen
+                                setSessionList([]);
+                                setCurrentSessionId(null);
+                                setMessages([]);
+                              }
+                            });
+                        } else {
+                          setMessages([]);
+                          setCurrentSessionId(null);
+                        }
                       }
                     }}
+
                     style={{
                       width: '100%',
                       padding: '6px 10px',
@@ -586,19 +621,51 @@ function ChatContent() {
           {/* Messages */}
           <div className="chat-messages">
             {messages.length === 0 ? (
-              <div className="chat-welcome animate-fadeIn">
+              <div className="chat-welcome animate-fadeIn" style={{ maxWidth: 540, margin: '20px auto', textAlign: 'center' }}>
                 <div className="chat-welcome-icon">{aiAvatar}</div>
-                <div className="chat-welcome-title">
+                <div className="chat-welcome-title" style={{ fontSize: '1.4rem', fontWeight: 800 }}>
                   {car
-                    ? `Xin chào! Tôi là ${aiName} — thợ xe của ${car.brand} ${car.model} ${car.year} của bạn.`
+                    ? `👋 Xin chào! Tôi là ${aiName} — thợ xe AI của ${car.brand} ${car.model} (${car.year}).`
                     : `Xin chào! Tôi là ${aiName}.`}
                 </div>
-                <div className="chat-welcome-desc">
-                  {theme === 'pro'
-                    ? 'Hỏi tôi bất kỳ điều gì về xe của bạn. Bạn cũng có thể gửi ảnh hoá đơn, thu âm tiếng động lạ hoặc video sự cố.'
-                    : 'Bạn cứ hỏi thoải mái nha! Đừng ngại gửi ảnh hóa đơn sửa xe hay thu âm tiếng kêu lạ cho mình soi xem giúp nhé 😊'}
+                <div className="chat-welcome-desc" style={{ marginBottom: 24 }}>
+                  {car
+                    ? `Chiếc ${car.brand} ${car.model} của bạn chưa có lịch sử tư vấn dở dang. Hãy bắt đầu hỏi AI hoặc khai báo thêm thông tin xe bên dưới:`
+                    : 'Hỏi tôi bất kỳ điều gì về xe của bạn. Bạn cũng có thể gửi ảnh hoá đơn, thu âm tiếng động lạ hoặc đính kèm video sự cố.'}
+                </div>
+
+                {/* Customized Prompt Chips for New Car Profile */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, textAlign: 'left' }}>
+                  {[
+                    { label: '📝 Khai báo lịch sử bảo dưỡng', action: () => router.push('/garage') },
+                    { label: '🔍 Lịch bảo dưỡng tiếp theo khi nào?', action: () => sendMessage(`Chiếc ${car?.brand || 'xe'} ${car?.model || ''} của tôi cần làm những hạng mục bảo dưỡng gì tiếp theo?`) },
+                    { label: '📸 Gửi ảnh bill / hóa đơn sửa xe', action: () => document.getElementById('chat-file-upload')?.click() },
+                    { label: '🎙️ Thu âm tiếng động lạ động cơ', action: () => startRecording() },
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={chip.action}
+                      className="card"
+                      style={{
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-surface)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'var(--text-1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+
             ) : (
               messages.map(msg => (
                 <div key={msg.id} className={`message-row ${msg.role === 'user' ? 'user' : ''} animate-fadeInUp`}>

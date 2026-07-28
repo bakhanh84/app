@@ -20,6 +20,9 @@ export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
+  const [userCars, setUserCars] = useState<any[]>([]);
+  const [selectedCarId, setSelectedCarId] = useState<string | null>('all');
+
   useEffect(() => {
     // Check if there is an active local chat
     const cachedMessages = localStorage.getItem('sparkgo_active_chat_messages');
@@ -33,6 +36,13 @@ export default function HistoryPage() {
     }
 
     if (session?.user) {
+      fetch('/api/cars')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setUserCars(data);
+        })
+        .catch(() => {});
+
       fetch('/api/sessions')
         .then(res => res.json())
         .then(data => {
@@ -44,6 +54,7 @@ export default function HistoryPage() {
       setLoading(false);
     }
   }, [session]);
+
 
   const deleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -57,14 +68,22 @@ export default function HistoryPage() {
     } catch {}
   };
 
-  // Smart Date Grouping Logic
+  // Smart Date & Car Grouping Logic
   const groupedSessions = useMemo(() => {
     const filtered = sessions.filter(s => {
+      // Filter by selectedCarId
+      if (selectedCarId && selectedCarId !== 'all') {
+        if ((s as any).carId !== selectedCarId && s.car?.brand !== userCars.find(c => c.id === selectedCarId)?.brand) {
+          return false;
+        }
+      }
+
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const carText = s.car ? `${s.car.brand} ${s.car.model} ${s.car.year}`.toLowerCase() : '';
       return s.title.toLowerCase().includes(q) || carText.includes(q);
     });
+
 
     const now = new Date();
     const todayStr = now.toDateString();
@@ -99,7 +118,8 @@ export default function HistoryPage() {
     });
 
     return groups.filter(g => g.items.length > 0);
-  }, [sessions, searchQuery]);
+  }, [sessions, searchQuery, selectedCarId, userCars]);
+
 
   return (
     <>
@@ -161,6 +181,29 @@ export default function HistoryPage() {
           </div>
         )}
 
+        {/* Car Filter Pills Bar */}
+        {session?.user && userCars.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
+            <button
+              onClick={() => setSelectedCarId('all')}
+              className={`btn btn-sm ${selectedCarId === 'all' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ borderRadius: 100 }}
+            >
+              🚘 Tất cả xe ({sessions.length})
+            </button>
+            {userCars.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCarId(c.id)}
+                className={`btn btn-sm ${selectedCarId === c.id ? 'btn-primary' : 'btn-outline'}`}
+                style={{ borderRadius: 100 }}
+              >
+                🚗 {c.brand} {c.model} ({c.year})
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search Bar */}
         {session?.user && sessions.length > 0 && (
           <div style={{ marginBottom: 24 }}>
@@ -171,6 +214,7 @@ export default function HistoryPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
+
                 width: '100%',
                 padding: '12px 16px',
                 borderRadius: 'var(--radius-lg)',

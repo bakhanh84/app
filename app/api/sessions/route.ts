@@ -23,11 +23,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(chatSession);
   }
 
-  // List all sessions
+  const carId = searchParams.get('carId');
+
+  // List all sessions (filtered by carId if provided)
   const sessions = await db.chatSession.findMany({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+      ...(carId ? { carId } : {}),
+    },
     include: {
-      car: { select: { brand: true, model: true, year: true } },
+      car: { select: { id: true, brand: true, model: true, year: true } },
       messages: {
         take: 1,
         orderBy: { createdAt: 'asc' },
@@ -37,6 +42,7 @@ export async function GET(req: NextRequest) {
     orderBy: { updatedAt: 'desc' },
     take: 30,
   });
+
   return NextResponse.json(sessions);
 }
 
