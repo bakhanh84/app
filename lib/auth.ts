@@ -11,24 +11,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days (1 month session persistence)
+  },
   pages: {
     signIn: '/login',
     error: '/login',
   },
   callbacks: {
-    session({ session, user }) {
-      if (session.user && user) {
-        session.user.id = user.id;
+    jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (session.user && token?.id) {
+        session.user.id = token.id as string;
       }
       return session;
-    },
-  },
-  events: {
-    // Sync theme preference when user logs in
-    async signIn({ user }) {
-      if (user?.id) {
-        // Ensure user record exists (adapter handles this, but we can extend)
-      }
     },
   },
 });

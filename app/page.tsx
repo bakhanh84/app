@@ -1,8 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function LandingPage() {
+  const { data: session } = useSession();
   const [theme, setTheme] = useState<'pro' | 'friendly'>('pro');
 
   useEffect(() => {
@@ -41,9 +43,30 @@ export default function LandingPage() {
               🤝 Friendly
             </button>
           </div>
-          <Link href="/chat" className="btn btn-primary">
-            {hasCar ? 'Hỏi AI ngay' : 'Bắt đầu miễn phí'}
-          </Link>
+
+          {session?.user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link href="/chat" className="btn btn-primary btn-sm">
+                💬 Vào Chat AI
+              </Link>
+              {session.user.image ? (
+                <img src={session.user.image} alt={session.user.name || ''} style={{ width: 32, height: 32, borderRadius: '50%' }} />
+              ) : (
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                  {session.user.name?.[0] || 'U'}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link href="/login" className="btn btn-outline btn-sm">
+                🔑 Đăng nhập / Đăng ký
+              </Link>
+              <Link href="/chat" className="btn btn-primary btn-sm">
+                🚀 Dùng thử ngay
+              </Link>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -66,13 +89,22 @@ export default function LandingPage() {
               chẩn đoán sự cố, đến giá cả thị trường. Như người thợ quen lâu năm, 
               không bao giờ vụ lợi.
             </p>
+
             <div className="hero-actions">
-              <Link href="/onboarding" className="btn btn-primary btn-lg">
-                🚗 Tạo hồ sơ xe miễn phí
-              </Link>
-              <Link href="/chat" className="btn btn-ghost btn-lg">
-                Hỏi AI ngay →
-              </Link>
+              {session?.user ? (
+                <Link href="/chat" className="btn btn-primary btn-lg">
+                  💬 Tiếp tục trao đổi với AI Thợ Xe →
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="btn btn-primary btn-lg">
+                    🔑 Đăng ký / Đăng nhập ngay
+                  </Link>
+                  <Link href="/chat" className="btn btn-ghost btn-lg">
+                    🚀 Trải nghiệm thử không cần tài khoản →
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="hero-stats">
@@ -208,17 +240,22 @@ export default function LandingPage() {
         <div className="cta-box">
           <h2 className="cta-box-title">Sẵn sàng gặp thợ xe AI của bạn?</h2>
           <p className="cta-box-desc">
-            Tạo hồ sơ xe trong 2 phút. Miễn phí hoàn toàn.
+            Đăng ký tài khoản miễn phí chỉ trong 5 giây với Google.
           </p>
-          <Link href="/onboarding" className="btn btn-primary btn-lg">
-            🚗 Bắt đầu ngay — Miễn phí
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Link href="/login" className="btn btn-primary btn-lg">
+              🔑 Đăng ký / Đăng nhập với Google
+            </Link>
+            <Link href="/chat" className="btn btn-ghost btn-lg">
+              🚀 Trải nghiệm AI ngay →
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '24px', borderTop: '1px solid var(--border)', color: 'var(--text-3)', fontSize: '0.82rem' }}>
-        © 2025 SparkGo — Người thợ xe thân tín của bạn
+        © 2026 SparkGo — Nền tảng Chăm sóc Ô tô AI Thân Tín
       </footer>
     </>
   );
