@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'sparkgo_super_secret_auth_key_2026',
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
