@@ -101,12 +101,32 @@ function ChatContent() {
       fetch('/api/sessions')
         .then(res => res.json())
         .then(data => {
-          if (Array.isArray(data)) setSessionList(data);
+          if (Array.isArray(data) && data.length > 0) {
+            setSessionList(data);
+            // If no specific session requested in URL, auto-load latest DB session!
+            if (!sessionIdParam) {
+              const latestSession = data[0];
+              setCurrentSessionId(latestSession.id);
+              fetch(`/api/sessions?id=${latestSession.id}`)
+                .then(r => r.json())
+                .then(sData => {
+                  if (sData?.messages && sData.messages.length > 0) {
+                    const formatted: Message[] = sData.messages.map((m: any) => ({
+                      id: m.id,
+                      role: m.role,
+                      content: m.content,
+                      attachments: m.attachments ? JSON.parse(m.attachments) : undefined,
+                    }));
+                    setMessages(formatted);
+                  }
+                }).catch(() => {});
+            }
+          }
         })
         .catch(() => {});
     }
 
-    // Load active session from URL or LocalStorage
+    // Load active session from URL if explicitly provided
     if (sessionIdParam) {
       setCurrentSessionId(sessionIdParam);
       fetch(`/api/sessions?id=${sessionIdParam}`)
@@ -122,13 +142,14 @@ function ChatContent() {
             setMessages(formatted);
           }
         }).catch(() => {});
-    } else {
-      // Restore guest/active chat from localStorage
+    } else if (!session?.user) {
+      // Restore guest/active chat from localStorage only for unauthenticated users
       const cachedMessages = localStorage.getItem('sparkgo_active_chat_messages');
       if (cachedMessages) {
         try { setMessages(JSON.parse(cachedMessages)); } catch {}
       }
     }
+
 
 
     // Handle pending question from calendar
