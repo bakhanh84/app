@@ -399,7 +399,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '24px', borderTop: '1px solid var(--border)', color: 'var(--text-3)', fontSize: '0.82rem' }}>
-        © 2026 SparkGo — Nền tảng Chăm sóc Ô tô AI Thân Tín
+        © 2026 ⚡ SparkGo — Cuộc Cách Mạng Rửa Xe & Chăm Sóc Xe Số Hóa Đẳng Cấp
       </footer>
     </>
   );

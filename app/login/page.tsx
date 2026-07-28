@@ -44,7 +44,7 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(ellipse at top, #0d192e 0%, #080c18 100%)',
+      background: 'radial-gradient(ellipse at top, #14151F 0%, #070709 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -61,7 +61,7 @@ export default function LoginPage() {
         transform: 'translateX(-50%)',
         width: '600px',
         height: '600px',
-        background: 'radial-gradient(circle, rgba(47,128,255,0.18) 0%, rgba(0,0,0,0) 70%)',
+        background: 'radial-gradient(circle, rgba(245,197,24,0.18) 0%, rgba(0,0,0,0) 70%)',
         pointerEvents: 'none',
       }} />
 
@@ -79,12 +79,14 @@ export default function LoginPage() {
               width: 52,
               height: 52,
               borderRadius: 16,
-              background: 'linear-gradient(135deg, #2F80FF 0%, #0052CC 100%)',
+              background: 'linear-gradient(135deg, #F5C518 0%, #E5A93C 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 28,
-              boxShadow: '0 8px 24px rgba(47,128,255,0.4)',
+              boxShadow: '0 8px 24px rgba(245,197,24,0.4)',
+              color: '#000000',
+              fontWeight: 900,
             }}>
               ⚡
             </div>

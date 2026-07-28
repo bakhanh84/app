@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
             {/* Overview Metric Widgets */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 }}>
               {[
-                { label: 'TỔNG NGUỜI DÙNG', value: stats.summary.totalUsers.toLocaleString('vi-VN'), icon: '👥', color: '#2F80FF' },
+                { label: 'TỔNG NGUỜI DÙNG', value: stats.summary.totalUsers.toLocaleString('vi-VN'), icon: '👥', color: '#F5C518' },
                 { label: 'HỒ SƠ XE ĐÃ ĐĂNG KÝ', value: stats.summary.totalCars.toLocaleString('vi-VN'), icon: '🚗', color: '#10B981' },
                 { label: 'PHIÊN TRÒ CHUYỆN AI', value: stats.summary.totalSessions.toLocaleString('vi-VN'), icon: '💬', color: '#F59E0B' },
                 { label: 'TIN NHẮN & FILE', value: stats.summary.totalMessages.toLocaleString('vi-VN'), icon: '📨', color: '#8B5CF6' },
