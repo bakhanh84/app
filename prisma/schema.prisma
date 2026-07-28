@@ -56,6 +56,8 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  phone         String?
+  role          String    @default("user") // "user" | "admin"
   theme         String    @default("pro")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -73,6 +75,7 @@ model Car {
   brand             String
   model             String
   year              Int
+  licensePlate      String?
   currentKm         Int      @default(0)
   fuelType          String   @default("petrol")
   transmission      String   @default("auto")
@@ -88,6 +91,7 @@ model Car {
   chatSessions ChatSession[]
   reminders    MaintenanceReminder[]
 }
+
 
 model ChatSession {
   id        String   @id @default(cuid())

@@ -76,6 +76,36 @@ function ChatContent() {
       try { setCar(JSON.parse(savedCar)); } catch { /* ignore */ }
     }
 
+    // If user is authenticated, sync car & session list from DB
+    if (session?.user) {
+      fetch('/api/cars')
+        .then(res => res.json())
+        .then(dbCars => {
+          if (Array.isArray(dbCars) && dbCars.length > 0) {
+            const activeCar = dbCars[0];
+            setCar(activeCar);
+            localStorage.setItem('sparkgo_car', JSON.stringify(activeCar));
+          } else if (savedCar) {
+            // Push local car to DB
+            try {
+              fetch('/api/cars', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: savedCar,
+              });
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
+      fetch('/api/sessions')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setSessionList(data);
+        })
+        .catch(() => {});
+    }
+
     // Load active session from URL or LocalStorage
     if (sessionIdParam) {
       setCurrentSessionId(sessionIdParam);
@@ -100,15 +130,6 @@ function ChatContent() {
       }
     }
 
-    // Load user sessions list if logged in
-    if (session?.user) {
-      fetch('/api/sessions')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setSessionList(data);
-        })
-        .catch(() => {});
-    }
 
     // Handle pending question from calendar
     const pending = localStorage.getItem('sparkgo_pending_question');

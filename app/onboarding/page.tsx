@@ -54,7 +54,7 @@ export default function OnboardingPage() {
     else handleFinish();
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const fullCar: CarProfile = {
       brand: car.brand || 'Không rõ',
       model: car.model || 'Không rõ',
@@ -68,8 +68,18 @@ export default function OnboardingPage() {
       notes: car.notes,
     };
     localStorage.setItem('sparkgo_car', JSON.stringify(fullCar));
+
+    try {
+      await fetch('/api/cars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullCar),
+      });
+    } catch {}
+
     router.push('/chat');
   };
+
 
   const canProceedStep2 = car.brand && car.model && car.year && car.currentKm;
 

@@ -22,21 +22,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const body = await req.json();
-  const { id, ...data } = body;
+  const { id, brand, model, year, currentKm, fuelType, transmission, color, lastOilChangeKm, lastOilChangeDate, notes, licensePlate } = body;
 
-  if (id) {
-    // Update existing
-    const car = await db.car.update({
-      where: { id, userId: session.user.id },
-      data: { ...data, updatedAt: new Date() },
+  if (!brand || !model) {
+    return NextResponse.json({ error: 'Thiếu thông tin hãng hoặc dòng xe' }, { status: 400 });
+  }
+
+  // Check if car with same brand/model already exists for user
+  const existingCar = id
+    ? await db.car.findFirst({ where: { id, userId: session.user.id } })
+    : await db.car.findFirst({ where: { userId: session.user.id, brand, model, isActive: true } });
+
+  if (existingCar) {
+    const updated = await db.car.update({
+      where: { id: existingCar.id },
+      data: {
+        year: year || existingCar.year,
+        currentKm: currentKm !== undefined ? currentKm : existingCar.currentKm,
+        fuelType: fuelType || existingCar.fuelType,
+        transmission: transmission || existingCar.transmission,
+        color: color !== undefined ? color : existingCar.color,
+        lastOilChangeKm: lastOilChangeKm !== undefined ? lastOilChangeKm : existingCar.lastOilChangeKm,
+        lastOilChangeDate: lastOilChangeDate !== undefined ? lastOilChangeDate : existingCar.lastOilChangeDate,
+        notes: notes !== undefined ? notes : existingCar.notes,
+        licensePlate: licensePlate !== undefined ? licensePlate : existingCar.licensePlate,
+        updatedAt: new Date(),
+      },
     });
-    return NextResponse.json(car);
+    return NextResponse.json(updated);
   } else {
-    // Create new
-    const car = await db.car.create({
-      data: { ...data, userId: session.user.id },
+    const newCar = await db.car.create({
+      data: {
+        userId: session.user.id,
+        brand,
+        model,
+        year: year || new Date().getFullYear(),
+        currentKm: currentKm || 0,
+        fuelType: fuelType || 'petrol',
+        transmission: transmission || 'auto',
+        color,
+        lastOilChangeKm,
+        lastOilChangeDate,
+        notes,
+        licensePlate,
+      },
     });
-    return NextResponse.json(car);
+    return NextResponse.json(newCar);
   }
 }
 
