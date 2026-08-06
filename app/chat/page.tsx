@@ -65,6 +65,8 @@ function ChatContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [userApiKey, setUserApiKey] = useState('');
+  const [showKeyModal, setShowKeyModal] = useState(false);
 
 
 
@@ -126,6 +128,9 @@ function ChatContent() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('sparkgo_theme') as AITheme | null;
     if (savedTheme) setTheme(savedTheme);
+
+    const savedKey = localStorage.getItem('sparkgo_user_gemini_key') || '';
+    if (savedKey) setUserApiKey(savedKey);
 
     const savedCar = localStorage.getItem('sparkgo_car');
     if (savedCar) {
@@ -352,6 +357,7 @@ function ChatContent() {
           theme,
           sessionId: activeSid,
           attachments: currentAttachments,
+          customApiKey: userApiKey || (typeof window !== 'undefined' ? localStorage.getItem('sparkgo_user_gemini_key') || undefined : undefined),
         }),
       });
 
@@ -437,6 +443,17 @@ function ChatContent() {
             <button className={`theme-toggle-btn${theme === 'pro' ? ' active' : ''}`} onClick={() => switchTheme('pro')}>🔧 Pro</button>
             <button className={`theme-toggle-btn${theme === 'friendly' ? ' active' : ''}`} onClick={() => switchTheme('friendly')}>🤝 Friendly</button>
           </div>
+
+          <button
+            onClick={() => setShowKeyModal(true)}
+            className="btn btn-outline btn-sm"
+            style={{
+              borderColor: userApiKey ? 'rgba(52,211,153,0.5)' : 'var(--border)',
+              color: userApiKey ? '#34D399' : 'var(--text-2)',
+            }}
+          >
+            {userApiKey ? '🟢 Key Gemini Live' : '🔑 Đổi Key API'}
+          </button>
 
           <Link href="/calendar" className="btn btn-ghost btn-sm">📅 Lịch bảo dưỡng</Link>
 
@@ -874,6 +891,82 @@ function ChatContent() {
           </div>
         </main>
       </div>
+
+      {/* Gemini API Key Configuration Modal */}
+      {showKeyModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: 16,
+        }}>
+          <div className="card animate-fadeInUp" style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
+                🔑 Cấu Hình Google Gemini API Key
+              </h3>
+              <button onClick={() => setShowKeyModal(false)} className="btn btn-ghost btn-sm" style={{ fontSize: 18 }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-2)', lineHeight: 1.5, marginBottom: 16 }}>
+              Dán API Key cá nhân của bạn từ Google AI Studio để trò chuyện trực tiếp với mô hình AI <strong>Gemini 2.0 Flash</strong> thời gian thực không giới hạn!
+            </p>
+
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label">Google Gemini API Key (bắt đầu bằng <code>AIzaSy...</code>)</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="AIzaSy..."
+                value={userApiKey}
+                onChange={e => setUserApiKey(e.target.value)}
+                style={{ fontFamily: 'monospace' }}
+              />
+            </div>
+
+            <div style={{ fontSize: '0.8rem', background: 'var(--bg-surface)', padding: 12, borderRadius: 8, marginBottom: 20 }}>
+              💡 Chưa có Key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-light)', fontWeight: 700 }}>Bấm vào đây để lấy Key miễn phí từ Google →</a>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              {userApiKey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserApiKey('');
+                    localStorage.removeItem('sparkgo_user_gemini_key');
+                    setShowKeyModal(false);
+                  }}
+                  className="btn btn-outline"
+                  style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                >
+                  Xóa Key
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (userApiKey.trim()) {
+                    localStorage.setItem('sparkgo_user_gemini_key', userApiKey.trim());
+                  } else {
+                    localStorage.removeItem('sparkgo_user_gemini_key');
+                  }
+                  setShowKeyModal(false);
+                }}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                Lưu cấu hình Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
