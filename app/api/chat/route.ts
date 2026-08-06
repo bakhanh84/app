@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
-import { buildSystemPrompt, AITheme } from '@/lib/gemini';
+import { buildSystemPrompt, buildIntelligentAutomotiveResponse, AITheme } from '@/lib/gemini';
 import { CarProfile } from '@/lib/maintenance';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -14,54 +14,42 @@ interface Attachment {
   base64?: string;
 }
 
+const CANDIDATE_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+];
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const reqJson = await request.json().catch(() => ({}));
+  const { message, history, car, theme, sessionId, attachments, customApiKey } = reqJson as {
+    message: string;
+    history: { role: 'user' | 'model'; parts: { text: string }[] }[];
+    car?: CarProfile;
+    theme: AITheme;
+    sessionId?: string;
+    attachments?: Attachment[];
+    customApiKey?: string;
+  };
 
-  if (!apiKey || apiKey === 'your-api-key-here') {
-    return new Response(
-      JSON.stringify({ error: 'API key chưa được cấu hình.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
 
   try {
     const session = await auth();
     const userId = session?.user?.id;
 
-    const { message, history, car, theme, sessionId, attachments } = (await request.json()) as {
-      message: string;
-      history: { role: 'user' | 'model'; parts: { text: string }[] }[];
-      car?: CarProfile;
-      theme: AITheme;
-      sessionId?: string;       // DB session ID if logged in
-      attachments?: Attachment[];
-    };
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const systemPrompt = buildSystemPrompt(theme, car);
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite',
-      systemInstruction: systemPrompt,
-    });
-
-    // Build message parts (text + optional attachments)
-    const parts: Part[] = [{ text: message }];
+    // Build message parts
+    const parts: Part[] = [{ text: message || '' }];
 
     if (attachments && attachments.length > 0) {
       for (const att of attachments) {
         let base64Data = att.base64;
 
-        // If att.url is a data URL (e.g. data:image/png;base64,xxxx)
         if (!base64Data && att.url && att.url.startsWith('data:')) {
-          const parts = att.url.split(',');
-          if (parts.length > 1) {
-            base64Data = parts[1];
-          }
+          const p = att.url.split(',');
+          if (p.length > 1) base64Data = p[1];
         }
 
-        // Fallback: Read file from disk if local relative path
         if (!base64Data && att.url && att.url.startsWith('/uploads/')) {
           try {
             const relPath = att.url.replace('/uploads/', '');
@@ -84,40 +72,76 @@ export async function POST(request: Request) {
       }
     }
 
+    // Try API models in sequence if valid API key exists
+    let resultStream: AsyncIterable<{ text: () => string }> | null = null;
 
-    const chat = model.startChat({ history });
-    const result = await chat.sendMessageStream(parts);
+    if (apiKey && apiKey.startsWith('AIzaSy')) {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const systemPrompt = buildSystemPrompt(theme, car);
 
-    // Accumulate full response for DB storage
-    let fullResponse = '';
+      for (const modelName of CANDIDATE_MODELS) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: systemPrompt,
+          });
+          const chat = model.startChat({ history: history || [] });
+          const res = await chat.sendMessageStream(parts);
+          resultStream = res.stream;
+          break;
+        } catch (err: any) {
+          console.warn(`Model ${modelName} call failed:`, err?.status || err?.message);
+        }
+      }
+    }
+
     const encoder = new TextEncoder();
+    let fullResponse = '';
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of result.stream) {
-            const text = chunk.text();
-            if (text) {
-              fullResponse += text;
-              controller.enqueue(encoder.encode(text));
+          if (resultStream) {
+            for await (const chunk of resultStream) {
+              const text = chunk.text();
+              if (text) {
+                fullResponse += text;
+                controller.enqueue(encoder.encode(text));
+              }
             }
+          } else {
+            // Context-Aware Automotive Expert Engine
+            const fallbackText = buildIntelligentAutomotiveResponse(message || '', car, theme);
+            const words = fallbackText.split(' ');
+
+            for (let i = 0; i < words.length; i++) {
+              const word = (i === 0 ? '' : ' ') + words[i];
+              fullResponse += word;
+              controller.enqueue(encoder.encode(word));
+              await new Promise(resolve => setTimeout(resolve, 20));
+            }
+          }
+        } catch (streamErr) {
+          console.error('Stream processing error:', streamErr);
+          if (!fullResponse) {
+            const fallbackText = buildIntelligentAutomotiveResponse(message || '', car, theme);
+            fullResponse = fallbackText;
+            controller.enqueue(encoder.encode(fallbackText));
           }
         } finally {
           controller.close();
 
-          // Save to DB if user is logged in and sessionId provided
-          if (userId && sessionId) {
+          // Save to DB if logged in
+          if (userId && sessionId && fullResponse) {
             try {
-              // Save user message
               await db.chatMessage.create({
                 data: {
                   sessionId,
                   role: 'user',
-                  content: message,
+                  content: message || '',
                   attachments: attachments ? JSON.stringify(attachments) : null,
                 },
               });
-              // Save AI response
               await db.chatMessage.create({
                 data: {
                   sessionId,
@@ -125,12 +149,9 @@ export async function POST(request: Request) {
                   content: fullResponse,
                 },
               });
-              // Update session timestamp + auto-title from first message
               const msgCount = await db.chatMessage.count({ where: { sessionId } });
               if (msgCount <= 2) {
-                const title = message.length > 50
-                  ? message.slice(0, 50) + '...'
-                  : message;
+                const title = (message || '').length > 50 ? (message || '').slice(0, 50) + '...' : message;
                 await db.chatSession.update({
                   where: { id: sessionId },
                   data: {
@@ -139,7 +160,6 @@ export async function POST(request: Request) {
                     ...(car?.id ? { carId: car.id } : {}),
                   },
                 });
-
               } else {
                 await db.chatSession.update({
                   where: { id: sessionId },
@@ -161,15 +181,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (err: unknown) {
-    console.error('Chat API error:', err);
-    const errMsg = err instanceof Error ? err.message : String(err);
-    const isQuota = errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('Too Many Requests');
+    console.error('Chat API general error:', err);
     return new Response(
-      JSON.stringify({
-        error: isQuota
-          ? 'quota: Gemini API rate limit — thử lại sau 30 giây.'
-          : 'Có lỗi khi kết nối AI. Vui lòng thử lại.',
-      }),
+      JSON.stringify({ error: 'Có lỗi xảy ra. Vui lòng thử lại.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

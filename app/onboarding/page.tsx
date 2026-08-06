@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CAR_BRANDS, AITheme } from '@/lib/gemini';
 import { CarProfile } from '@/lib/maintenance';
+import { getCarImageUrl } from '@/lib/car-images';
 
 type Step = 1 | 2 | 3;
 
@@ -285,6 +286,40 @@ export default function OnboardingPage() {
                     onChange={e => updateCar('color', e.target.value)}
                   />
                 </div>
+
+                {/* Live Car Image Preview */}
+                {car.brand && car.model && (
+                  <div style={{
+                    marginTop: 16,
+                    padding: 16,
+                    borderRadius: 14,
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>
+                      📸 HÌNH ẢNH DIỆN MẠO XE THỰC TẾ (AUTO MATCH)
+                    </div>
+                    <div style={{
+                      height: 150,
+                      borderRadius: 10,
+                      backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%), url('${getCarImageUrl(car.brand, car.model, car.year)}')`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      padding: 14,
+                    }}>
+                      <div style={{ color: '#fff' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                          {car.brand} {car.model} ({car.year})
+                        </div>
+                        <div style={{ fontSize: '0.78rem', opacity: 0.9 }}>
+                          Phiên bản chuẩn theo năm sản xuất {car.year}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
@@ -313,16 +348,23 @@ export default function OnboardingPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Car summary */}
-                <div className="card" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 32 }}>🚗</span>
-                    <div>
-                      <div style={{ fontWeight: 700, color: 'var(--text-1)' }}>
-                        {car.brand} {car.model} {car.year}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-2)' }}>
-                        {(car.currentKm || 0).toLocaleString('vi-VN')} km · {car.fuelType === 'petrol' ? 'Xăng' : car.fuelType === 'diesel' ? 'Diesel' : car.fuelType === 'hybrid' ? 'Hybrid' : 'Điện'} · {car.transmission === 'auto' ? 'Tự động' : 'Số sàn'}
-                      </div>
+                <div className="card" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{
+                    width: 72,
+                    height: 52,
+                    borderRadius: 8,
+                    backgroundImage: `url('${getCarImageUrl(car.brand || '', car.model || '', car.year)}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    border: '1px solid var(--border)',
+                    flexShrink: 0,
+                  }} />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-1)' }}>
+                      {car.brand} {car.model} ({car.year})
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginTop: 2 }}>
+                      {(car.currentKm || 0).toLocaleString('vi-VN')} km · {car.fuelType === 'petrol' ? 'Xăng' : car.fuelType === 'diesel' ? 'Diesel' : car.fuelType === 'hybrid' ? 'Hybrid' : 'Điện'} · {car.transmission === 'auto' ? 'Tự động' : 'Số sàn'}
                     </div>
                   </div>
                 </div>

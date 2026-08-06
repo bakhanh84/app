@@ -8,8 +8,8 @@ export function MobileBottomNav() {
   const navItems = [
     { href: '/', icon: '🏠', label: 'Trang chủ' },
     { href: '/chat', icon: '💬', label: 'Chat AI' },
-    { href: '/calendar', icon: '📅', label: 'Bảo dưỡng' },
-    { href: '/history', icon: '📜', label: 'Lịch sử' },
+    { href: '/calendar', icon: '🛠️', label: 'Bảo dưỡng' },
+    { href: '/history', icon: '🕒', label: 'Lịch sử' },
     { href: '/login', icon: '👤', label: 'Tài khoản' },
   ];
 

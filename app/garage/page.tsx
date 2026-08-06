@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { calculateMaintenance, MaintenanceItem } from '@/lib/maintenance';
+import { getCarImageUrl } from '@/lib/car-images';
 
 
 interface ServiceRecordItem {
@@ -202,15 +203,44 @@ export default function GaragePage() {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 28 }}>
-            {/* Health Score Card */}
+          <>
+            {/* Car Photo Banner */}
             <div className="card" style={{
-              background: 'linear-gradient(135deg, rgba(20,30,48,0.9) 0%, rgba(13,25,46,0.95) 100%)',
+              position: 'relative',
+              height: 180,
+              borderRadius: 16,
+              overflow: 'hidden',
+              marginBottom: 20,
+              backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.3) 60%), url('${getCarImageUrl(activeCar.brand, activeCar.model, activeCar.year)}')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               border: '1px solid var(--border)',
               display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
+              alignItems: 'flex-end',
+              padding: 20,
             }}>
+              <div>
+                <span style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid #10B981', color: '#34D399', fontSize: '0.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>
+                  HỒ SƠ XE CHÍNH CHỦ
+                </span>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#FFFFFF', margin: '4px 0 2px 0', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+                  {activeCar.brand} {activeCar.model}
+                </h2>
+                <div style={{ fontSize: '0.85rem', color: '#E2E8F0', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                  Năm sản xuất: <strong>{activeCar.year}</strong> · Biển số: <strong>{activeCar.licensePlate || 'Chưa nhập'}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 28 }}>
+              {/* Health Score Card */}
+              <div className="card" style={{
+                background: 'linear-gradient(135deg, rgba(20,30,48,0.9) 0%, rgba(13,25,46,0.95) 100%)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -287,86 +317,87 @@ export default function GaragePage() {
               </div>
             </div>
           </div>
-        )}
+        </>
+      )}
 
-        {/* Digital Service History Section */}
-        {activeCar && (
-          <div className="card" style={{ marginTop: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-1)' }}>
-                  📜 Sổ Bảo Dưỡng Điện Tử (Service History Log)
-                </h2>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                  Ghi chép toàn bộ lần thay dầu, sửa chữa tại garage để minh bạch lịch sử và giữ giá xe.
-                </p>
-              </div>
-
-              {session?.user && (
-                <button onClick={() => setShowAddModal(true)} className="btn btn-primary btn-sm">
-                  + Thêm nhật ký sửa chữa
-                </button>
-              )}
+      {/* Digital Service History Section */}
+      {activeCar && (
+        <div className="card" style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-1)' }}>
+                📜 Sổ Bảo Dưỡng Điện Tử (Service History Log)
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                Ghi chép toàn bộ lần thay dầu, sửa chữa tại garage để minh bạch lịch sử và giữ giá xe.
+              </p>
             </div>
 
-            {serviceRecords.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 16px', background: 'var(--bg-surface)', borderRadius: 12 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📝</div>
-                <div style={{ fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
-                  Chưa có nhật ký bảo dưỡng nào
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: 16 }}>
-                  Bấm nút bên dưới để khai báo thông tin thay dầu hay sửa xe gần đây nhất.
-                </div>
-                {session?.user ? (
-                  <button onClick={() => setShowAddModal(true)} className="btn btn-outline btn-sm">
-                    + Thêm nhật ký bảo dưỡng đầu tiên
-                  </button>
-                ) : (
-                  <Link href="/login" className="btn btn-primary btn-sm">
-                    🔑 Đăng nhập để lưu nhật ký
-                  </Link>
-                )}
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-3)', fontSize: '0.78rem' }}>
-                      <th style={{ padding: '10px 12px' }}>NGÀY</th>
-                      <th style={{ padding: '10px 12px' }}>SỐ KM</th>
-                      <th style={{ padding: '10px 12px' }}>NỘI DUNG DỊCH VỤ</th>
-                      <th style={{ padding: '10px 12px' }}>GARAGE / XƯỞNG</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>CHI PHÍ (VND)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {serviceRecords.map((r, idx) => (
-                      <tr key={r.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '12px', color: 'var(--text-2)' }}>
-                          {new Date(r.serviceDate).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td style={{ padding: '12px', fontWeight: 700, color: 'var(--accent-light)' }}>
-                          {r.odometerKm.toLocaleString('vi-VN')} km
-                        </td>
-                        <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-1)' }}>
-                          {r.serviceName}
-                          {r.notes && <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', fontWeight: 400 }}>{r.notes}</div>}
-                        </td>
-                        <td style={{ padding: '12px', color: 'var(--text-2)' }}>
-                          {r.garageName || '—'}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)' }}>
-                          {r.cost ? `${r.cost.toLocaleString('vi-VN')} đ` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {session?.user && (
+              <button onClick={() => setShowAddModal(true)} className="btn btn-primary btn-sm">
+                + Thêm nhật ký sửa chữa
+              </button>
             )}
           </div>
-        )}
+
+          {serviceRecords.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 16px', background: 'var(--bg-surface)', borderRadius: 12 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📝</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
+                Chưa có nhật ký bảo dưỡng nào
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: 16 }}>
+                Bấm nút bên dưới để khai báo thông tin thay dầu hay sửa xe gần đây nhất.
+              </div>
+              {session?.user ? (
+                <button onClick={() => setShowAddModal(true)} className="btn btn-outline btn-sm">
+                  + Thêm nhật ký bảo dưỡng đầu tiên
+                </button>
+              ) : (
+                <Link href="/login" className="btn btn-primary btn-sm">
+                  🔑 Đăng nhập để lưu nhật ký
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-3)', fontSize: '0.78rem' }}>
+                    <th style={{ padding: '10px 12px' }}>NGÀY</th>
+                    <th style={{ padding: '10px 12px' }}>SỐ KM</th>
+                    <th style={{ padding: '10px 12px' }}>NỘI DUNG DỊCH VỤ</th>
+                    <th style={{ padding: '10px 12px' }}>GARAGE / XƯỞNG</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>CHI PHÍ (VND)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceRecords.map((r, idx) => (
+                    <tr key={r.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '12px', color: 'var(--text-2)' }}>
+                        {new Date(r.serviceDate).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td style={{ padding: '12px', fontWeight: 700, color: 'var(--accent-light)' }}>
+                        {r.odometerKm.toLocaleString('vi-VN')} km
+                      </td>
+                      <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-1)' }}>
+                        {r.serviceName}
+                        {r.notes && <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', fontWeight: 400 }}>{r.notes}</div>}
+                      </td>
+                      <td style={{ padding: '12px', color: 'var(--text-2)' }}>
+                        {r.garageName || '—'}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)' }}>
+                        {r.cost ? `${r.cost.toLocaleString('vi-VN')} đ` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
         {/* Modal Add Service Record */}
         {showAddModal && (

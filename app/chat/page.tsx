@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { AITheme, QUICK_PROMPTS_PRO, QUICK_PROMPTS_FRIENDLY } from '@/lib/gemini';
 import { CarProfile } from '@/lib/maintenance';
+import { getCarImageUrl } from '@/lib/car-images';
 
 interface Attachment {
   url: string;
@@ -562,11 +563,20 @@ function ChatContent() {
                 </div>
               )}
 
-              <div className="car-info-card-header">
-                <div className="car-info-icon">🚗</div>
+              <div className="car-info-card-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 54,
+                  height: 40,
+                  borderRadius: 8,
+                  backgroundImage: `url('${getCarImageUrl(car.brand, car.model, car.year)}')`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  border: '1px solid var(--border)',
+                  flexShrink: 0,
+                }} />
                 <div>
-                  <div className="car-info-name">{car.brand} {car.model}</div>
-                  <div className="car-info-year">{car.year}</div>
+                  <div className="car-info-name" style={{ fontWeight: 800 }}>{car.brand} {car.model}</div>
+                  <div className="car-info-year" style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>Năm sản xuất: {car.year}</div>
                 </div>
               </div>
 
