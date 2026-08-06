@@ -65,7 +65,56 @@ export function buildIntelligentAutomotiveResponse(message: string, car?: CarPro
   const msgLower = (message || '').toLowerCase().trim();
   const isPro = theme === 'pro';
 
-  // Topic 1: Phanh / Thắng / Tiếng rít phanh
+  // 1. Cốp điện / Cốp xe / Cửa xe / Khóa xe / Kính điện / Smartkey
+  if (msgLower.includes('cốp') || msgLower.includes('cửa') || msgLower.includes('khóa') || msgLower.includes('kính') || msgLower.includes('chìa')) {
+    return isPro ? `Chào bạn, đối với chiếc **${brand} ${model} (${year})**, sự cố cốp điện hoặc cửa/khóa kẹt không mở được thường do các nguyên nhân kỹ thuật sau:
+
+### 🔍 Phân Tích Nguyên Nhân Kỹ Thuật:
+1. **Công Tắc Khóa Cốp Phụ Trong Xe (Trunk Lock Switch):** Đa số các dòng xe ô tô có nút khóa cốp an toàn nằm ở hộc để đồ bên ghế phụ (Glove Box). Nếu nút này vô tình bị bấm tắt (OFF), cốp điện sẽ bị vô hiệu hóa hoàn toàn.
+2. **Cầu Chì (Fuse) Cốp Điện Bị Đứt:** Cầu chì bảo vệ ổ khóa ngàm cốp hoặc ty điện bị đứt do quá tải làm mất nguồn điện cấp cho mô tơ.
+3. **Mô Tơ Nâng Nâng Ty Điện / Khóa Hít Bị Kẹt:** Ty điện cơ khí lâu ngày bị kẹt bánh răng hoặc cảm biến chống kẹt bị gián đoạn.
+4. **Pin Chìa Khóa Smartkey Yếu:** Điện áp pin chìa mỏng dưới 2.8V làm tín hiệu sóng không mở được cốp từ xa.
+
+### 🛠️ Khuyến Nghị & Hướng Xử Lý Khẩn Cấp:
+- **Mở cốp khẩn cấp thủ công:** Rút chiếc **chìa khóa cơ phụ** nằm bên trong remote smartkey, cắm vào ổ khóa cơ khẩn cấp dưới cốp sau (hoặc lật hàng ghế sau luồn tay vào chốt mở khẩn cấp).
+- **Kiểm tra cầu chì & công tắc phụ:** Kiểm tra nút Trunk Lock trong hộc đồ phụ trước khi mang ra thợ.
+- **Chi phí tham khảo:** ~200,000đ (thay cầu chì/pin chìa) đến 1,500,000đ - 3,200,000đ (thay ty điện/ngàm khóa cốp chính hãng).`
+    : `👋 **Chào bạn nhé!** Minh xin tư vấn về sự cố cốp điện không mở được trên chiếc **${brand} ${model} (${year})** của bạn nha:
+
+🚗 **Nguyên nhân tại sao cốp điện lại bị kẹt?**
+- **Mẹo đầu tiên (rất hay gặp):** Bạn mở hộc để đồ bên ghế phụ xem có nút công tắc khóa cốp phụ (Trunk Lock Switch) bị vô tình bấm tắt không nha!
+- **Nguyên nhân 2:** Đứt cầu chì (fuse) điện cốp hoặc pin chìa khóa smartkey bị hết pin.
+- **Nguyên nhân 3:** Ty nâng điện cốp hoặc mô tơ ngàm khóa cốp bị hỏng bánh răng.
+
+💡 **Cách mở cốp khẩn cấp từ Minh:**
+- Bạn rút chiếc **chìa khóa cơ phụ** nằm bên trong chìa smartkey ra, cắm vào ổ khóa cơ ẩn bên dưới tay nắm cốp sau để mở thủ công lấy đồ nha.
+- Sau đó mang xe ghé garage kiểm tra lại cầu chì và ty điện nhé! 🚗✨`;
+  }
+
+  // 2. Ắc quy / Bình / Đề không nổ / Củ đề / Máy phát
+  if (msgLower.includes('bình') || msgLower.includes('ắc quy') || msgLower.includes('đề') || msgLower.includes('nổ') || msgLower.includes('sạc')) {
+    return isPro ? `Chào bạn, hiện tượng xe **${brand} ${model} (${year})** đề không nổ hoặc yếu bình ắc quy được chẩn đoán kỹ thuật như sau:
+
+### 🔍 Phân Tích Nguyên Nhân Kỹ Thuật:
+1. **Ắc Quy Bị Sụt Điện / Hết BÌNH (Chiếm 75%):** Ắc quy ô tô có tuổi thọ trung bình 2 – 3 năm. Điện áp chuẩn khi tắt máy là **12.4V – 12.8V**. Nếu điện áp sụt dưới 11.8V, củ đề sẽ nhảy tạch tạch nhưng không đủ sức quay trục khuỷu.
+2. **Củ Đề (Starter Motor) Bị Mòn Chổi Than:** Khi bấm đề nghe tiếng "tạch" đơn lẻ nhưng củ đề không quay.
+3. **Máy Phát Điện (Alternator) Hỏng:** Máy phát không sạc điện lại cho bình khi xe chạy.
+
+### 🛠️ Hướng Xử Lý Khẩn Cấp:
+- **[KHẨN CẤP]**: Dùng bộ dây kích bình nối với xe khác hoặc bộ kích bình di động để nổ máy tạm thời.
+- Sau khi nổ máy, giữ xe chạy liên tục 20–30 phút để máy phát sạc bình, sau đó ghé tiệm đo lại dung lượng ắc quy (CCA).
+- **Chi phí thay ắc quy tham khảo:** ~1,300,000đ – 2,400,000đ (bình GS, Varta, Amaron chính hãng).`
+    : `👋 **Minh chào bạn!** Sự cố đề không nổ trên chiếc **${brand} ${model} (${year})** đây nha:
+
+🔋 **Hiện tượng yếu bình ắc quy:**
+- Khi bấm nút đề mà nghe tiếng "tạch tạch tạch" liên tục, đèn táp lô chớp tắt ➔ **100% là bị hết bình ắc quy rồi bạn nhé!**
+
+💡 **Cách xử lý nhanh:**
+- Bạn gọi dịch vụ kích bình tận nơi (khoảng 100k-150k) hoặc nhờ xe khác câu dây kích bình sang nha.
+- Nếu bình đã xài trên 2 năm thì nên thay bình mới (GS hoặc Varta) giá tầm **1.4 - 2.2 triệu** xài vi vu 3 năm tiếp nè! 🚗✨`;
+  }
+
+  // 3. Phanh / Thắng / Tiếng rít phanh
   if (msgLower.includes('phanh') || msgLower.includes('thắng') || msgLower.includes('cót két') || msgLower.includes('rít') || msgLower.includes('dĩa')) {
     return isPro ? `Chào bạn, đối với chiếc **${brand} ${model} (${year})** (ODO: ${kmStr} km), hiện tượng phanh phát ra tiếng kêu là cảnh báo kỹ thuật rất phổ biến. Dưới đây là phân tích chi tiết:
 
@@ -90,7 +139,7 @@ export function buildIntelligentAutomotiveResponse(message: string, car?: CarPro
 - Chi phí thay má phanh ${brand} ${model} khoảng **700k - 1.3 triệu** thôi nè. 🚗✨`;
   }
 
-  // Topic 2: Thay dầu / Nhớt / Bảo dưỡng định kỳ
+  // 4. Thay dầu / Nhớt / Bảo dưỡng định kỳ
   if (msgLower.includes('dầu') || msgLower.includes('nhớt') || msgLower.includes('bảo dưỡng') || msgLower.includes('lịch') || msgLower.includes('thay')) {
     return isPro ? `Chào bạn, đối với chiếc **${brand} ${model} (${year})** hiện đã chạy **${kmStr} km**, quy trình bảo dưỡng động cơ chuẩn kỹ thuật như sau:
 
@@ -117,7 +166,7 @@ export function buildIntelligentAutomotiveResponse(message: string, car?: CarPro
 - Gói thay dầu + lọc dầu ${brand} ${model} rơi vào tầm **650k - 950k** thôi nè! 🚗✨`;
   }
 
-  // Topic 3: Đèn báo lỗi / Check Engine / Đèn táp lô
+  // 5. Đèn báo lỗi / Check Engine / Đèn táp lô
   if (msgLower.includes('đèn') || msgLower.includes('check engine') || msgLower.includes('lỗi') || msgLower.includes('báo lỗi') || msgLower.includes('cảnh báo')) {
     return isPro ? `Chào bạn, việc nổi đèn cảnh báo trên bảng đồng hồ chiếc **${brand} ${model} (${year})** cần được phân loại theo màu sắc để xử lý an toàn:
 
@@ -141,7 +190,7 @@ Ghé xưởng kiểm tra đọc lỗi OBD-II (thường được miễn phí ho�
 Cần Minh hỗ trợ thêm thông tin gì bạn cứ nhắn nha! 🚗✨`;
   }
 
-  // Topic 4: Điều hòa / Máy lạnh / Không mát
+  // 6. Điều hòa / Máy lạnh / Không mát
   if (msgLower.includes('điều hòa') || msgLower.includes('máy lạnh') || msgLower.includes('lạnh') || msgLower.includes('nóng') || msgLower.includes('mùi')) {
     return isPro ? `Chào bạn, đối với hệ thống điều hòa xe **${brand} ${model} (${year})**, hiện tượng mát kém hoặc có mùi hôi được chẩn đoán kỹ thuật như sau:
 
@@ -166,7 +215,7 @@ Cần Minh hỗ trợ thêm thông tin gì bạn cứ nhắn nha! 🚗✨`;
 - Nếu thay lọc rồi vẫn chưa lạnh thì ghé garage nhờ thợ kiểm tra lượng gas lạnh nhé! 🚗✨`;
   }
 
-  // Topic 5: Khung gầm / Tiếng kêu gầm / Phuộc / Rô tuyn / Bi moay ơ
+  // 7. Khung gầm / Tiếng kêu gầm / Phuộc / Rô tuyn / Bi moay ơ
   if (msgLower.includes('gầm') || msgLower.includes('phuộc') || msgLower.includes('nhún') || msgLower.includes('rô tuyn') || msgLower.includes('lộc cộc') || msgLower.includes('ù') || msgLower.includes('kêu')) {
     return isPro ? `Chào bạn, tiếng kêu bất thường dưới gầm xe **${brand} ${model} (${year})** (${kmStr} km) là dấu hiệu xuống cấp hệ thống treo/dẫn động:
 
@@ -194,49 +243,21 @@ Cần Minh hỗ trợ thêm thông tin gì bạn cứ nhắn nha! 🚗✨`;
 - Bạn nên mang xe ra garage cho thợ nâng cầu lên lắc thử bánh là lòi ra bệnh ngay. Sửa sớm đi êm ái mà an toàn nữa nha! 🚗✨`;
   }
 
-  // Topic 6: Hao xăng / Động cơ giật cục / Khói
-  if (msgLower.includes('xăng') || msgLower.includes('hao') || msgLower.includes('giật') || msgLower.includes('khói') || msgLower.includes('máy yếu') || msgLower.includes('rung')) {
-    return isPro ? `Chào bạn, đối với xe **${brand} ${model} (${year})** hiện tượng tốn xăng hoặc động cơ rung giật có thể do các yếu tố kỹ thuật sau:
-
-### 🔍 Phân Tích Nguyên Nhân:
-1. **Bugi & Cuộn cao áp (Mobin) đánh lửa yếu:** Khiến xăng đốt không sạch, vừa tốn xăng vừa làm xe giật cục khi tăng tốc.
-2. **Họng hút & Bướm ga bị đóng cặn muội than:** Làm sai lệch tỷ lệ hòa khí Xăng/Gió.
-3. **Kim phun nhiên liệu bị nghẹt:** Xăng phun ra dạng giọt thay vì dạng sương.
-4. **Lốp xe thiếu áp suất (non hơi):** Tăng ma sát lăn trên mặt đường.
-
-### 🛠️ Giải Pháp Khuyên Dùng:
-- Vệ sinh họng hút bướm ga & Kim phun bằng dung dịch chuyên dụng (~350,000đ).
-- Kiểm tra thay Bugi Iridium nếu đã chạy trên 40,000 km (~150,000đ - 250,000đ/viên).`
-    : `👋 **Minh chào bạn!** Xe **${brand} ${model} (${year})** chạy hao xăng hoặc bị rung giật nhẹ thì làm theo mẹo này của Minh nha:
-
-⚡ **Nguyên nhân chính:**
-- Dễ nhất là **Bugi lâu ngày bị đóng chấu** hoặc **Lọc gió bẩn nghẹt**.
-- Ngoài ra họng ga bị bám muội than đen cũng làm xe bị khựng khi nhấn ga.
-
-💡 **Cách xử lý nhẹ tiền:**
-- Bạn đi vệ sinh họng ga với kim phun tầm **300k**, sẵn tiện thay bộ Bugi mới là xe lại lướt bốc và tiết kiệm xăng ngay nè! 🚗✨`;
-  }
-
-  // Topic 7: General Default Response
+  // 8. Dynamic Context Analysis for any other custom question
   return isPro ? `Chào bạn, tôi là Thợ Xe AI SparkGo — chuyên gia tư vấn kỹ thuật xe ô tô tại Việt Nam.
 
-### 🚘 Thông Tin Hồ Sơ Xe Đang Tư Vấn:
-- **Dòng xe:** ${brand} ${model} (${year})
-- **Số km hiện tại:** ${kmStr} km
+### 🚘 Phân Tích Cho Câu Hỏi: "${message}" (${brand} ${model} ${year}):
+- **Tình trạng ghi nhận:** Xe hiện đang đạt mốc ODO **${kmStr} km**.
+- **Khuyên dùng kỹ thuật:** Đối với sự cố "${message}", bạn nên cho thợ kiểm tra trực tiếp các cụm chi tiết liên quan (cầu chì, hệ thống cấp điện, cảm biến và dây cáp nối) để chẩn đoán chính xác.
 
-### 💡 Lời Khuyên Vận Hành & Bảo Dưỡng Cho Xe ${brand} ${model}:
-1. **Định kỳ kiểm tra 5 dung dịch:** Dầu động cơ, nước làm mát, dầu phanh, dầu trợ lực và nước rửa kính.
-2. **Duy trì áp suất lốp:** Chuẩn 2.2 – 2.4 bar giúp tiết kiệm nhiên liệu và bảo vệ lốp xe.
-3. **Theo dõi lịch bảo dưỡng:** Định kỳ mỗi 5,000 km hoặc 6 tháng/lần.
+### 💡 Lời Khuyên An Toàn:
+1. Đảm bảo an toàn hệ thống điện và cơ khí trước khi tháo lắp.
+2. Bạn có thể ghé garage uy tín để kiểm tra bằng thiết bị chuyên dụng.`
+    : `👋 **Chào bạn nha!** Minh là người bạn đồng hành tư vấn xe **${brand} ${model} (${year})** (${kmStr} km) của bạn đây nè.
 
-Bạn cần tôi phân tích kỹ hơn về hiện tượng hay thắc mắc cụ thể nào của xe ${brand} ${model} không?`
-    : `👋 **Chào bạn nhé!** Minh là người bạn đồng hành chăm sóc chiếc **${brand} ${model} (${year})** (${kmStr} km) của bạn đây nè.
-
-🚗 **Mẹo nhỏ giữ xe luôn như mới:**
-- Bạn nhớ thay dầu máy đúng hạn 5,000 km nha.
-- Luôn kiểm tra áp suất lốp khoảng 2.3 kg/cm2 để xe chạy lướt và êm ái.
-
-Bạn đang gặp vấn đề gì với chiếc xe ${brand} ${model} hay cần Minh hỗ trợ thông tin gì cứ thoải mái hỏi nha! ✨`;
+🚗 **Về vấn đề "${message}":**
+- Vấn đề này cần kiểm tra kỹ phần điện hoặc chi tiết cơ khí tương ứng của xe ${brand} ${model} nha bạn.
+- Bạn thử kiểm tra cầu chì hoặc đưa xe ghé xưởng nhờ thợ kiểm tra trực tiếp cho yên tâm nhất nè! 🚗✨`;
 }
 
 export const CAR_BRANDS: Record<string, string[]> = {
