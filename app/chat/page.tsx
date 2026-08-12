@@ -6,6 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { AITheme, QUICK_PROMPTS_PRO, QUICK_PROMPTS_FRIENDLY } from '@/lib/gemini';
 import { CarProfile } from '@/lib/maintenance';
 import { getCarImageUrl } from '@/lib/car-images';
+import { VoiceCallModal } from '@/app/components/VoiceCallModal';
 
 interface Attachment {
   url: string;
@@ -67,6 +68,7 @@ function ChatContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [userApiKey, setUserApiKey] = useState('');
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
 
 
@@ -400,6 +402,77 @@ function ChatContent() {
     }
   }, [input, isLoading, messages, car, theme, attachments, session, currentSessionId]);
 
+  const handleVoiceSendMessage = async (voiceText: string): Promise<string> => {
+    if (!voiceText.trim()) return '';
+
+    const userMsgId = Date.now().toString();
+    const userMsg: Message = { role: 'user', content: voiceText, id: userMsgId };
+    setMessages(prev => [...prev, userMsg]);
+
+    const history = messages.concat(userMsg).map(m => ({
+      role: m.role === 'user' ? 'user' : ('model' as const),
+      parts: [{ text: m.content }],
+    }));
+
+    const assistantId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { role: 'assistant', content: '', id: assistantId }]);
+
+    try {
+      let activeSid = currentSessionId;
+      if (session?.user && !activeSid) {
+        try {
+          const sRes = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ carId: car?.id, theme }),
+          });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            activeSid = sData.id;
+            setCurrentSessionId(activeSid);
+          }
+        } catch {}
+      }
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: voiceText,
+          history,
+          car,
+          theme,
+          sessionId: activeSid,
+          customApiKey: userApiKey || (typeof window !== 'undefined' ? localStorage.getItem('sparkgo_user_gemini_key') || undefined : undefined),
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = 'Có lỗi kết nối AI.';
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: errText } : m));
+        return errText;
+      }
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        const final = accumulated;
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: final } : m));
+      }
+
+      return accumulated;
+    } catch (err) {
+      const errText = 'Có lỗi xảy ra khi truyền tin thoại.';
+      setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: errText } : m));
+      return errText;
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -443,6 +516,25 @@ function ChatContent() {
             <button className={`theme-toggle-btn${theme === 'pro' ? ' active' : ''}`} onClick={() => switchTheme('pro')}>🔧 Pro</button>
             <button className={`theme-toggle-btn${theme === 'friendly' ? ' active' : ''}`} onClick={() => switchTheme('friendly')}>🤝 Friendly</button>
           </div>
+
+          <button
+            onClick={() => setShowVoiceModal(true)}
+            className="btn btn-sm animate-pulse"
+            style={{
+              background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+              color: '#000',
+              fontWeight: 800,
+              borderRadius: 20,
+              border: 'none',
+              padding: '6px 14px',
+              boxShadow: '0 0 14px rgba(255, 215, 0, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+          >
+            📞 Gọi Thoại AI
+          </button>
 
           <button
             onClick={() => setShowKeyModal(true)}
@@ -967,6 +1059,18 @@ function ChatContent() {
           </div>
         </div>
       )}
+
+      {/* Voice Call AI Modal */}
+      <VoiceCallModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        car={car}
+        theme={theme}
+        customApiKey={userApiKey}
+        onSendMessage={async (voiceText: string) => {
+          return await handleVoiceSendMessage(voiceText);
+        }}
+      />
     </>
   );
 }
