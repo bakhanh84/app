@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { getCarImageUrl } from '@/lib/car-images';
 
@@ -91,13 +92,37 @@ function formatDate(d?: string) {
 }
 
 export default function GaragePage() {
+  return (
+    <Suspense fallback={
+      <div className="garage-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+        <div className="sg-spinner" style={{ width: 32, height: 32 }} />
+      </div>
+    }>
+      <GaragePageContent />
+    </Suspense>
+  );
+}
+
+function GaragePageContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as any;
+
   const [cars, setCars] = useState<Car[]>([]);
   const [activeCar, setActiveCar] = useState<Car | null>(null);
   const [memories, setMemories] = useState<VehicleMemory[]>([]);
   const [services, setServices] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dna' | 'cost' | 'memory' | 'service' | 'docs'>('dna');
+  const [activeTab, setActiveTab] = useState<'dna' | 'cost' | 'memory' | 'service' | 'docs'>(
+    ['dna', 'cost', 'memory', 'service', 'docs'].includes(tabParam) ? tabParam : 'dna'
+  );
+
+  useEffect(() => {
+    if (tabParam && ['dna', 'cost', 'memory', 'service', 'docs'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   const [showAddService, setShowAddService] = useState(false);
   const [newService, setNewService] = useState({ serviceName: '', odometerKm: '', garageName: '', cost: '', notes: '' });
   const [showOcr, setShowOcr] = useState(false);

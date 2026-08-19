@@ -461,9 +461,13 @@ export default function HomePage() {
       <section style={{ marginTop: 14 }}>
         <div className="sg-section-header">
           <h3 className="sg-section-title">Thao tác nhanh</h3>
-          <Link href="/onboarding" className="sg-section-link">+ Thêm xe</Link>
+          <Link href="/garage?tab=cost" className="sg-section-link">Chi tiết chi phí ›</Link>
         </div>
         <div className="sg-quick-grid">
+          <Link href="/garage?tab=cost" className="sg-quick-item">
+            <div className="sg-quick-icon" style={{ background: '#ECFDF5', color: '#10B981', borderColor: 'rgba(16,185,129,0.2)' }}>💰</div>
+            <span className="sg-quick-label">Chi phí xe</span>
+          </Link>
           <Link href="/chat?prompt=chandoan" className="sg-quick-item">
             <div className="sg-quick-icon" style={{ background: '#FFF0EB', color: '#FF5500', borderColor: 'rgba(255,85,0,0.15)' }}>🔧</div>
             <span className="sg-quick-label">Sự cố & sửa</span>
@@ -480,10 +484,6 @@ export default function HomePage() {
             <div className="sg-quick-icon" style={{ background: '#F5F3FF', color: '#8B5CF6', borderColor: 'rgba(139,92,246,0.15)' }}>📜</div>
             <span className="sg-quick-label">Lịch sử xe</span>
           </Link>
-          <button className="sg-quick-item" onClick={() => setShowQuickLog(true)}>
-            <div className="sg-quick-icon" style={{ background: '#ECFDF5', color: '#10B981', borderColor: 'rgba(16,185,129,0.15)' }}>➕</div>
-            <span className="sg-quick-label">Quick Log</span>
-          </button>
         </div>
       </section>
 
