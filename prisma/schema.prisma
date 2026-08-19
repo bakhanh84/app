@@ -58,16 +58,19 @@ model User {
   image         String?
   phone         String?
   role          String    @default("user") // "user" | "admin"
-  theme         String    @default("pro")
+  theme         String    @default("light")
+  goals         String?   // JSON: ["save_cost","understand_car","diy","reminder","diagnose","history"]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  cars           Car[]
-  chatSessions   ChatSession[]
-  reminders      MaintenanceReminder[]
-  serviceRecords ServiceRecord[]
+  accounts         Account[]
+  sessions         Session[]
+  cars             Car[]
+  chatSessions     ChatSession[]
+  reminders        MaintenanceReminder[]
+  serviceRecords   ServiceRecord[]
+  vehicleMemories  VehicleMemory[]
+  vehicleDocuments VehicleDocument[]
 }
 
 model Car {
@@ -80,21 +83,45 @@ model Car {
   vin               String?
   currentKm         Int      @default(0)
   dailyKmAvg        Int      @default(35)
-  healthScore       Int      @default(90)
+  healthScore       Int      @default(85)
   fuelType          String   @default("petrol")
   transmission      String   @default("auto")
   color             String?
   lastOilChangeKm   Int?
   lastOilChangeDate String?
+  lastServiceDate   String?
   notes             String?
   isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chatSessions   ChatSession[]
-  reminders      MaintenanceReminder[]
-  serviceRecords ServiceRecord[]
+  // Vehicle DNA fields
+  dnaEngine       String   @default("unknown") // "good"|"monitor"|"urgent"|"unknown"
+  dnaSuspension   String   @default("unknown")
+  dnaBrakes       String   @default("unknown")
+  dnaBattery      String   @default("unknown")
+  dnaTires        String   @default("unknown")
+  dnaElectrical   String   @default("unknown")
+
+  // Ownership & cost
+  purchaseDate     String?
+  purchaseKm       Int?
+  totalCost        Float    @default(0)
+
+  // Documents
+  insuranceExpiry    String?
+  registrationExpiry String?
+
+  // Completeness score (0–100)
+  profileComplete  Int      @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatSessions     ChatSession[]
+  reminders        MaintenanceReminder[]
+  serviceRecords   ServiceRecord[]
+  vehicleMemories  VehicleMemory[]
+  vehicleDocuments VehicleDocument[]
 }
 
 model ServiceRecord {
@@ -104,6 +131,7 @@ model ServiceRecord {
   serviceDate DateTime @default(now())
   odometerKm  Int
   serviceName String
+  serviceType String   @default("maintenance") // "maintenance"|"repair"|"inspection"|"parts"|"other"
   garageName  String?
   cost        Float?
   invoiceUrl  String?
@@ -114,12 +142,45 @@ model ServiceRecord {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Vehicle Memory — AI nhớ về chiếc xe theo thời gian
+model VehicleMemory {
+  id         String   @id @default(cuid())
+  carId      String
+  userId     String
+  memoryType String   // "oil_change"|"symptom"|"cost"|"garage"|"note"|"insight"|"repair"|"parts"|"inspection"
+  title      String
+  content    String   // JSON or plain text
+  source     String   @default("manual") // "chat"|"manual"|"upload"|"ai_extracted"
+  severity   String?  // "info"|"warning"|"urgent"
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Vehicle Documents — hóa đơn, giấy tờ xe
+model VehicleDocument {
+  id            String   @id @default(cuid())
+  carId         String
+  userId        String
+  docType       String   // "invoice"|"registration"|"insurance"|"photo"|"quote"|"other"
+  fileName      String
+  url           String
+  extractedData String?  // JSON extracted by AI OCR
+  notes         String?
+  uploadedAt    DateTime @default(now())
+
+  car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model ChatSession {
   id        String   @id @default(cuid())
   userId    String
   carId     String?
   title     String   @default("Cuộc trò chuyện mới")
-  theme     String   @default("pro")
+  theme     String   @default("light")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -143,10 +204,14 @@ model MaintenanceReminder {
   id               String    @id @default(cuid())
   userId           String
   carId            String
-  type             String    // "oil" | "brake" | "tire" | "registration" | "custom"
+  type             String    // "oil"|"brake"|"tire"|"registration"|"insurance"|"battery"|"coolant"|"custom"
   label            String
   dueKm            Int?
   dueDate          DateTime?
+  lastDoneKm       Int?
+  lastDoneDate     DateTime?
+  intervalKm       Int?      // repeat every X km
+  intervalDays     Int?      // repeat every X days
   notified         Boolean   @default(false)
   pushSubscription String?   // JSON
   createdAt        DateTime  @default(now())
@@ -154,4 +219,3 @@ model MaintenanceReminder {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
 }
-

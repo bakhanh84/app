@@ -60,6 +60,9 @@ function ChatContent() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [theme, setTheme] = useState<AITheme>('pro');
+  const [showOcrModal, setShowOcrModal] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrFileRef] = useState(() => typeof document !== 'undefined' ? document.createElement('input') : null);
   const [car, setCar] = useState<CarProfile | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -130,6 +133,8 @@ function ChatContent() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('sparkgo_theme') as AITheme | null;
     if (savedTheme) setTheme(savedTheme);
+    // Always use light theme for app
+    document.documentElement.removeAttribute('data-theme');
 
     const savedKey = localStorage.getItem('sparkgo_user_gemini_key') || '';
     if (savedKey) setUserApiKey(savedKey);
@@ -482,7 +487,6 @@ function ChatContent() {
 
   const switchTheme = (t: AITheme) => {
     setTheme(t);
-    document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('sparkgo_theme', t);
   };
 
@@ -490,79 +494,80 @@ function ChatContent() {
   const aiName = theme === 'pro' ? 'Thầy Hùng' : 'Minh';
   const aiAvatar = theme === 'pro' ? '🔧' : '🤝';
 
+  const handleOcrInChat = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOcrLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = (ev.target?.result as string).split(',')[1];
+      // Add to attachments for normal upload
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (uploadRes.ok) {
+          const uploaded = await uploadRes.json();
+          setAttachments(prev => [...prev, uploaded]);
+          setInput(prev => prev || 'Hãy đọc hóa đơn/biên lai này và tóm tắt các hạng mục sửa chữa, chi phí, và tư vấn xem có hợp lý không?');
+        }
+      } catch {}
+      setOcrLoading(false);
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = '';
+  };
+
   return (
     <>
-      {/* Navbar */}
-      <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" className="navbar-logo">
-            <div className="navbar-logo-icon">⚡</div>
-            Spark<span>Go</span>
-          </Link>
-
-          {/* New Chat Button */}
+      {/* Chat Header — Light Theme */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: 'rgba(255,255,255,0.96)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid var(--border)',
+        padding: '10px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* History drawer toggle (mobile) */}
           <button
-            onClick={startNewChat}
-            className="btn btn-outline btn-sm"
-            style={{ borderRadius: 100, padding: '4px 12px', fontSize: '0.78rem' }}
-            title="Bắt đầu đoạn chat mới"
+            onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+            style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg-raised)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
+            title="Lịch sử chat"
           >
-            + Chat mới
+            ☰
           </button>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none' }}>
+            <div style={{ width: 28, height: 28, background: 'var(--orange)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#FFF' }}>⚡</div>
+            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>Spark<span style={{ color: 'var(--orange)' }}>Go</span></span>
+          </Link>
+          {car && (
+            <div style={{ background: 'var(--orange-pale)', border: '1px solid var(--orange-border)', borderRadius: 99, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: 'var(--orange)' }}>
+              🚗 {car.brand} {car.model}
+            </div>
+          )}
         </div>
 
-        <div className="navbar-actions">
-          <div className="theme-toggle">
-            <button className={`theme-toggle-btn${theme === 'pro' ? ' active' : ''}`} onClick={() => switchTheme('pro')}>🔧 Pro</button>
-            <button className={`theme-toggle-btn${theme === 'friendly' ? ' active' : ''}`} onClick={() => switchTheme('friendly')}>🤝 Friendly</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* AI Mode Toggle */}
+          <div style={{ display: 'flex', background: 'var(--bg-raised)', borderRadius: 99, padding: 3, gap: 2, border: '1px solid var(--border)' }}>
+            <button onClick={() => switchTheme('pro')} style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: theme === 'pro' ? 'var(--orange)' : 'transparent', color: theme === 'pro' ? '#FFF' : 'var(--text-3)', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>🔧 Pro</button>
+            <button onClick={() => switchTheme('friendly')} style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: theme === 'friendly' ? 'var(--orange)' : 'transparent', color: theme === 'friendly' ? '#FFF' : 'var(--text-3)', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>🤝 Thân</button>
           </div>
 
           <button
             onClick={() => setShowVoiceModal(true)}
-            className="btn btn-sm animate-pulse"
-            style={{
-              background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
-              color: '#000',
-              fontWeight: 800,
-              borderRadius: 20,
-              border: 'none',
-              padding: '6px 14px',
-              boxShadow: '0 0 14px rgba(255, 215, 0, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
+            style={{ background: 'var(--orange)', color: '#FFF', fontWeight: 700, borderRadius: 10, border: 'none', padding: '7px 13px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', boxShadow: '0 2px 8px var(--orange-glow)' }}
           >
-            📞 Gọi Thoại AI
+            📞 Gọi AI
           </button>
-
-          <button
-            onClick={() => setShowKeyModal(true)}
-            className="btn btn-outline btn-sm"
-            style={{
-              borderColor: userApiKey ? 'rgba(52,211,153,0.5)' : 'var(--border)',
-              color: userApiKey ? '#34D399' : 'var(--text-2)',
-            }}
-          >
-            {userApiKey ? '🟢 Key Gemini Live' : '🔑 Đổi Key API'}
-          </button>
-
-          <Link href="/calendar" className="btn btn-ghost btn-sm">📅 Lịch bảo dưỡng</Link>
 
           {session?.user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
-              {session.user.image ? (
-                <img src={session.user.image} alt={session.user.name || ''} style={{ width: 30, height: 30, borderRadius: '50%' }} />
-              ) : (
-                <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
-                  {session.user.name?.[0] || 'U'}
-                </div>
-              )}
-              <button onClick={handleSignOut} className="btn btn-outline btn-sm">🚪 Thoát</button>
-
-            </div>
+            <img src={session.user.image || ''} alt={session.user.name || 'U'} style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--orange)', cursor: 'pointer' }} onClick={handleSignOut} title="Đăng xuất" />
           ) : (
-            <Link href="/login" className="btn btn-primary btn-sm">🔑 Đăng nhập</Link>
+            <Link href="/login" style={{ padding: '7px 14px', background: 'var(--orange)', color: '#FFF', borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: 'none' }}>Đăng nhập</Link>
           )}
         </div>
       </nav>
@@ -759,44 +764,50 @@ function ChatContent() {
           {/* Messages */}
           <div className="chat-messages">
             {messages.length === 0 ? (
-              <div className="chat-welcome animate-fadeIn" style={{ maxWidth: 540, margin: '20px auto', textAlign: 'center' }}>
+              <div className="chat-welcome" style={{ maxWidth: 500, margin: '20px auto', textAlign: 'center' }}>
                 <div className="chat-welcome-icon">{aiAvatar}</div>
-                <div className="chat-welcome-title" style={{ fontSize: '1.4rem', fontWeight: 800 }}>
+                <div className="chat-welcome-title">
                   {car
-                    ? `👋 Xin chào! Tôi là ${aiName} — thợ xe AI của ${car.brand} ${car.model} (${car.year}).`
+                    ? `${aiName} — AI Thợ Xe`
                     : `Xin chào! Tôi là ${aiName}.`}
                 </div>
-                <div className="chat-welcome-desc" style={{ marginBottom: 24 }}>
+                <div className="chat-welcome-desc">
                   {car
-                    ? `Chiếc ${car.brand} ${car.model} của bạn chưa có lịch sử tư vấn dở dang. Hãy bắt đầu hỏi AI hoặc khai báo thêm thông tin xe bên dưới:`
-                    : 'Hỏi tôi bất kỳ điều gì về xe của bạn. Bạn cũng có thể gửi ảnh hoá đơn, thu âm tiếng động lạ hoặc đính kèm video sự cố.'}
+                    ? `Sẵn sàng tư vấn về ${car.brand} ${car.model} (${car.year}) — ${car.currentKm?.toLocaleString('vi-VN')} km. Hỏi gì cũng được!`
+                    : 'Hỏi tôi bất kỳ điều gì về xe. Gửi ảnh hóa đơn, thu âm tiếng động lạ, hoặc mô tả sự cố.'}
                 </div>
+                {car && (
+                  <div className="chat-car-pill">🚗 {car.brand} {car.model} · {car.currentKm?.toLocaleString('vi-VN')} km</div>
+                )}
 
-                {/* Customized Prompt Chips for New Car Profile */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, textAlign: 'left' }}>
+                {/* Quick action chips */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 20, textAlign: 'left' }}>
                   {[
-                    { label: '📝 Khai báo lịch sử bảo dưỡng', action: () => router.push('/garage') },
-                    { label: '🔍 Lịch bảo dưỡng tiếp theo khi nào?', action: () => sendMessage(`Chiếc ${car?.brand || 'xe'} ${car?.model || ''} của tôi cần làm những hạng mục bảo dưỡng gì tiếp theo?`) },
-                    { label: '📸 Gửi ảnh bill / hóa đơn sửa xe', action: () => document.getElementById('chat-file-upload')?.click() },
-                    { label: '🎙️ Thu âm tiếng động lạ động cơ', action: () => startRecording() },
+                    { label: '🔧 Bảo dưỡng sắp tới?', action: () => sendMessage(`Chiếc ${car?.brand || 'xe'} của tôi cần bảo dưỡng gì tiếp theo?`) },
+                    { label: '📸 Đọc hóa đơn sửa xe', action: () => document.getElementById('chat-ocr-input')?.click() },
+                    { label: '🎙️ Thu âm tiếng động lạ', action: () => startRecording() },
+                    { label: '💰 Phân tích chi phí', action: () => sendMessage('Phân tích chi phí bảo dưỡng xe hợp lý là bao nhiêu?') },
                   ].map((chip, idx) => (
                     <button
                       key={idx}
                       onClick={chip.action}
-                      className="card"
                       style={{
                         padding: '12px 14px',
                         cursor: 'pointer',
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg-surface)',
-                        fontSize: '0.85rem',
+                        border: '1.5px solid var(--border)',
+                        background: '#FFF',
+                        borderRadius: 14,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: 'var(--text-1)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
                         transition: 'all 0.15s ease',
+                        textAlign: 'left',
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                     >
                       {chip.label}
                     </button>
@@ -893,7 +904,7 @@ function ChatContent() {
             )}
 
             <div className="chat-input-box">
-              {/* Hidden file input with unique ID */}
+              {/* Hidden file inputs */}
               <input
                 id="chat-file-upload"
                 ref={fileInputRef}
@@ -903,30 +914,34 @@ function ChatContent() {
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
               />
+              {/* OCR / Receipt scan input */}
+              <input
+                id="chat-ocr-input"
+                type="file"
+                accept="image/*"
+                onChange={handleOcrInChat}
+                style={{ display: 'none' }}
+              />
 
-              {/* Native Label Upload Button */}
-              <label
-                htmlFor="chat-file-upload"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  padding: '8px 6px',
-                  color: 'var(--text-2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: 40,
-                  minHeight: 44,
-                  userSelect: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                  touchAction: 'manipulation',
-                }}
-                title="Tải ảnh, video hoặc file hóa đơn"
-              >
-                {isUploading ? '⏳' : '📎'}
-              </label>
+              {/* Upload / OCR toggle */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                <label
+                  htmlFor="chat-file-upload"
+                  className="chat-action-btn"
+                  title="Tải ảnh, video hoặc file"
+                  style={{ display: 'flex', cursor: 'pointer' }}
+                >
+                  {isUploading ? '⏳' : '📎'}
+                </label>
+                <label
+                  htmlFor="chat-ocr-input"
+                  className="chat-action-btn"
+                  title="Scan hóa đơn bảo dưỡng"
+                  style={{ display: 'flex', cursor: 'pointer', fontSize: 15 }}
+                >
+                  {ocrLoading ? '⏳' : '🧾'}
+                </label>
+              </div>
 
               {/* Live Voice Recorder Button */}
               <button
@@ -1078,8 +1093,8 @@ function ChatContent() {
 export default function ChatPage() {
   return (
     <Suspense fallback={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-base)' }}>
-        <div className="spinner" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
+        <div className="sg-spinner" style={{ width: 32, height: 32 }} />
       </div>
     }>
       <ChatContent />

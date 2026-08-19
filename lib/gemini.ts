@@ -2,49 +2,200 @@ import { CarProfile } from './maintenance';
 
 export type AITheme = 'pro' | 'friendly';
 
-export function buildSystemPrompt(theme: AITheme, car?: CarProfile): string {
-  const carInfo = car
-    ? `\n\nXE ĐANG TƯ VẤN:\n- Hãng/Dòng xe: ${car.brand} ${car.model} (${car.year})\n- Số km hiện tại: ${car.currentKm.toLocaleString('vi-VN')} km\n- Loại nhiên liệu: ${fuelTypeLabel(car.fuelType)}\n- Hộp số: ${car.transmission === 'auto' ? 'Tự động' : 'Số sàn'}\n- Thay dầu lần cuối: ${car.lastOilChangeDate ? `${car.lastOilChangeDate} (${car.lastOilChangeKm?.toLocaleString('vi-VN')} km)` : 'Chưa có thông tin'}\n- Ghi chú: ${car.notes || 'Không có'}`
-    : '\n\n(Chưa có thông tin xe cụ thể — tư vấn tổng quát)';
+export interface VehicleMemoryContext {
+  title: string;
+  memoryType: string;
+  date?: string | Date;
+  content?: string;
+  source?: string;
+}
 
-  if (theme === 'pro') {
-    return `Bạn là "Thầy Hùng" — thợ xe kỳ cựu hơn 20 năm kinh nghiệm tại Việt Nam, từng làm đại lý chính hãng và xưởng tư nhân. Bạn biết tất cả dòng xe phổ biến ở Việt Nam: Toyota, Honda, Mazda, Hyundai, Ford, KIA, VinFast, Mitsubishi, Suzuki...${carInfo}
+export interface ServiceRecordContext {
+  serviceName: string;
+  serviceDate?: string | Date;
+  odometerKm?: number;
+  cost?: number;
+  garageName?: string;
+}
 
-NGUYÊN TẮC BẤT DI BẤT DỊCH:
-1. TUYỆT ĐỐI không gợi ý mua hàng, phụ tùng, hay dịch vụ vì lợi ích của mình
-2. Luôn GIẢI THÍCH TẠI SAO trước khi đưa lời khuyên — chủ xe cần hiểu, không chỉ làm theo
-3. Phân loại rõ mức độ cần xử lý:
-   - [KHẨN CẤP]: Phải xử lý ngay, có thể nguy hiểm
-   - [CẦN LÀM SỚM]: Trong 1-2 tuần tới
-   - [CÓ THỂ CHỜ]: Trong 1-2 tháng
-   - [THEO DÕI THÊM]: Quan sát xem tình trạng ra sao
-   - [BÌNH THƯỜNG]: Không lo, đây là hiện tượng bình thường
-4. Nếu không chắc chắn, nói thẳng: "Cần đưa xe vào garage để kiểm tra trực tiếp mới chính xác"
-5. Giải thích thuật ngữ kỹ thuật nếu dùng, nhưng không dùng thuật ngữ không cần thiết
-6. Biết điều kiện Việt Nam: đường xấu, kẹt xe, nóng bức — điều chỉnh lời khuyên phù hợp thực tế VN
-7. Nếu được hỏi về giá, cho khoảng giá tham khảo thực tế thị trường VN
+export interface VehicleDNAContext {
+  dnaEngine?: string;
+  dnaSuspension?: string;
+  dnaBrakes?: string;
+  dnaBattery?: string;
+  dnaTires?: string;
+  dnaElectrical?: string;
+}
 
-Trả lời bằng tiếng Việt. Giọng điệu: thẳng thắn, chuyên nghiệp, không vòng vo. Có thể dùng markdown để format câu trả lời cho rõ ràng.`;
+export function buildSystemPrompt(
+  theme: AITheme,
+  car?: CarProfile & {
+    licensePlate?: string;
+    vin?: string;
+    totalCost?: number;
+    dna?: VehicleDNAContext;
+    memories?: VehicleMemoryContext[];
+    serviceRecords?: ServiceRecordContext[];
+  }
+): string {
+  let carInfo = '';
+
+  if (car) {
+    const memoryList = car.memories && car.memories.length > 0
+      ? car.memories.slice(0, 10).map(m => `- [${m.memoryType.toUpperCase()}] ${m.title}${m.content && m.content !== m.title ? `: ${m.content.slice(0, 80)}` : ''}`).join('\n')
+      : 'Chưa có ghi chép triệu chứng cũ.';
+
+    const serviceList = car.serviceRecords && car.serviceRecords.length > 0
+      ? car.serviceRecords.slice(0, 8).map(s => `- ${s.serviceName} (${s.odometerKm ? `${s.odometerKm.toLocaleString('vi-VN')} km` : 'Chưa rõ km'}${s.garageName ? `, tại ${s.garageName}` : ''}${s.cost ? `, chi phí: ${s.cost.toLocaleString('vi-VN')}đ` : ''})`).join('\n')
+      : 'Chưa có lịch sử bảo dưỡng trước đây.';
+
+    const dnaStatus = `
+- Động cơ: ${car.dna?.dnaEngine || (car as any).dnaEngine || 'Bình thường'}
+- Hệ thống treo (gầm): ${car.dna?.dnaSuspension || (car as any).dnaSuspension || 'Bình thường'}
+- Hệ thống phanh: ${car.dna?.dnaBrakes || (car as any).dnaBrakes || 'Bình thường'}
+- Bình ắc quy: ${car.dna?.dnaBattery || (car as any).dnaBattery || 'Bình thường'}
+- Lốp xe: ${car.dna?.dnaTires || (car as any).dnaTires || 'Bình thường'}
+- Hệ thống điện: ${car.dna?.dnaElectrical || (car as any).dnaElectrical || 'Bình thường'}`;
+
+    carInfo = `\n\n══════════════════════════════════════════════════
+HỒ SƠ XE ĐANG ĐỒNG HÀNH ("CAR MEMORY"):
+- Hãng & Dòng xe: ${car.brand} ${car.model} (Đời ${car.year})
+- Số km ODO hiện tại: ${car.currentKm.toLocaleString('vi-VN')} km
+- Biển số: ${car.licensePlate || 'Chưa cập nhật'}
+- Nhiên liệu: ${fuelTypeLabel(car.fuelType)} | Hộp số: ${car.transmission === 'auto' ? 'Tự động' : 'Số sàn'}
+- Lần thay dầu gần nhất: ${car.lastOilChangeDate ? `${car.lastOilChangeDate} (${car.lastOilChangeKm?.toLocaleString('vi-VN')} km)` : 'Chưa ghi nhận'}
+- Tổng chi phí đã ghi nhận: ${car.totalCost ? `${car.totalCost.toLocaleString('vi-VN')}đ` : 'Chưa có'}
+
+🧬 TÌNH TRẠNG VEHICLE DNA HIỆN TẠI:${dnaStatus}
+
+🧠 TRÍ NHỚ CỦA BẠN VỀ CHIẾC XE NÀY (LỊCH SỬ ĐÃ QUA):
+${memoryList}
+
+📋 LỊCH SỬ BẢO DƯỠNG & SỬA CHỮA ĐÃ LÀM:
+${serviceList}
+══════════════════════════════════════════════════`;
+  } else {
+    carInfo = '\n\n(Chưa chọn xe cụ thể — trả lời tư vấn kỹ thuật tổng quát, và nhắc chủ xe chọn hoặc thêm xe để tư vấn chuẩn xác hơn)';
   }
 
-  return `Bạn là "Minh" — người bạn thân của chủ xe này. Bạn hiểu biết về xe ô tô nhưng luôn giải thích mọi thứ đơn giản, thân thiện như nói chuyện với bạn bè.${carInfo}
+  if (theme === 'pro') {
+    return `Bạn là "Thầy Hùng" — AI Thợ Xe thân tín kỳ cựu hơn 20 năm kinh nghiệm tại Việt Nam. Bạn ĐỒNG HÀNH cùng chủ xe và ĐÃ THEO DÕI chiếc xe này qua thời gian.${carInfo}
 
 NGUYÊN TẮC BẤT DI BẤT DỊCH:
-1. TUYỆT ĐỐI không push bán hàng hay dịch vụ nào
-2. Giải thích đơn giản, tránh thuật ngữ kỹ thuật phức tạp — dùng ví dụ đời thường để so sánh
-3. Phân loại mức độ bằng emoji:
-   - 🚨 **Khẩn cấp**: Phải xử lý ngay!
-   - ⚠️ **Cần xử lý sớm**: Trong 1-2 tuần
-   - 🔔 **Lên kế hoạch**: Trong 1-2 tháng
-   - 👀 **Theo dõi thêm**: Xem xem nó có tiếp tục không
-   - ✅ **Bình thường**: Không cần lo!
-4. Nếu không chắc, nói nhẹ nhàng: "Cái này Minh không chắc lắm, tốt nhất ghé garage cho thợ xem trực tiếp nha"
-5. Reassure chủ xe nếu vấn đề không nghiêm trọng — đừng để họ lo lắng không cần thiết
-6. Tính đến điều kiện thực tế ở Việt Nam khi đưa lời khuyên
-7. Nếu được hỏi về giá, cho khoảng giá thực tế thị trường VN
+1. LUÔN CÁ NHÂN HÓA: Bạn nhớ rõ chiếc ${car ? `${car.brand} ${car.model} (${car.year})` : 'xe'} này. Khi tư vấn, hãy chủ động liên hệ với số ODO (${car ? `${car.currentKm.toLocaleString('vi-VN')} km` : ''}) và lịch sử thay dầu/sửa chữa của chiếc xe này nếu phù hợp.
+2. ĐỨNG VỀ PHÍA CHỦ XE: Tuyệt đối không push mua hàng, không ép thay phụ tùng không cần thiết, không thiên vị bất kỳ garage nào.
+3. LUÔN GIẢI THÍCH NGUYÊN NHÂN: Giải thích cặn kẽ tại sao xảy ra hiện tượng đó, chủ xe có thể tự làm (DIY) hay cần ra thợ.
+4. PHÂN LOẠI MỨC ĐỘ RÕ RÀNG:
+   - [KHẨN CẤP]: Cần dừng xe hoặc xử lý ngay lập tức vì nguy hiểm
+   - [CẦN LÀM SỚM]: Xử lý trong 1–2 tuần tới
+   - [THEO DÕI THÊM]: Quan sát thêm triệu chứng
+   - [BÌNH THƯỜNG]: Hiện tượng cơ học bình thường
+5. BÁO GIÁ THỰC TẾ VIỆT NAM: Đưa ra khoảng giá phụ tùng & tiền công tham khảo chuẩn thị trường Việt Nam.
+6. THÂN TÍN & CHUYÊN NGHIỆP: Giọng điệu như người thợ có tâm, thẳng thắn, không dùng thuật ngữ rườm rà.`;
+  }
 
-Trả lời bằng tiếng Việt. Giọng điệu: thân thiện, thoải mái, có thể dùng emoji. Không quá formal. Có thể dùng markdown để format cho dễ đọc.`;
+  return `Bạn là "Minh" — người bạn thân đồng hành am hiểu xe ô tô tại Việt Nam. Bạn hiểu rõ chiếc xe này và luôn đứng về phía chủ xe.${carInfo}
+
+NGUYÊN TẮC:
+1. Nói chuyện thân thiện, ấm áp, gần gũi, dùng emoji nhẹ nhàng, dễ hiểu như bạn bè.
+2. Biết rõ tình trạng chiếc ${car ? `${car.brand} ${car.model}` : 'xe'} và các lần bảo dưỡng trước đó.
+3. Phân loại cấp độ dễ hiểu: 🚨 Khẩn cấp, ⚠️ Cần làm sớm, 🔔 Lên kế hoạch, ✅ Bình thường.
+4. Giải thích hiện tượng bằng ngôn ngữ đời thường, cho giá tham khảo tại Việt Nam.
+5. Nếu chưa có dữ liệu quan trọng (ví dụ: chưa biết lần thay dầu cuối), hãy nhẹ nhàng nhắc chủ xe chụp bill hoặc lưu lại.`;
 }
+
+// Auto-detect and extract vehicle memory / DNA updates from user messages
+export function extractMemoryFromMessage(userMsg: string): {
+  memoryType: string;
+  title: string;
+  severity: string;
+  dnaSystem?: 'dnaEngine' | 'dnaSuspension' | 'dnaBrakes' | 'dnaBattery' | 'dnaTires' | 'dnaElectrical';
+  dnaStatus?: 'good' | 'monitor' | 'urgent';
+} | null {
+  const msg = (userMsg || '').toLowerCase();
+
+  // Brakes
+  if (msg.includes('phanh') || msg.includes('thắng') || msg.includes('dĩa phanh') || msg.includes('má phanh')) {
+    const isUrgent = msg.includes('mất phanh') || msg.includes('sâu') || msg.includes('không ăn');
+    return {
+      memoryType: 'symptom',
+      title: isUrgent ? 'Cảnh báo phanh không ăn' : 'Ghi nhận tiếng kêu / kiểm tra phanh',
+      severity: isUrgent ? 'urgent' : 'warning',
+      dnaSystem: 'dnaBrakes',
+      dnaStatus: isUrgent ? 'urgent' : 'monitor',
+    };
+  }
+
+  // Battery
+  if (msg.includes('ắc quy') || msg.includes('bình') || msg.includes('đề không nổ') || msg.includes('hết điện')) {
+    return {
+      memoryType: 'symptom',
+      title: 'Triệu chứng ắc quy / đề nổ yếu',
+      severity: 'warning',
+      dnaSystem: 'dnaBattery',
+      dnaStatus: 'monitor',
+    };
+  }
+
+  // Suspension / Gầm
+  if (msg.includes('gầm') || msg.includes('phuộc') || msg.includes('rô tuyn') || msg.includes('lộc cộc') || msg.includes('rung bánh') || msg.includes('cao tốc rung')) {
+    return {
+      memoryType: 'symptom',
+      title: 'Ghi nhận hiện tượng gầm / rung giật hệ thống treo',
+      severity: 'warning',
+      dnaSystem: 'dnaSuspension',
+      dnaStatus: 'monitor',
+    };
+  }
+
+  // Tires
+  if (msg.includes('lốp') || msg.includes('thủng') || msg.includes('mòn lốp') || msg.includes('áp suất lốp') || msg.includes('xẹp lốp')) {
+    return {
+      memoryType: 'symptom',
+      title: 'Ghi nhận tình trạng lốp xe',
+      severity: 'info',
+      dnaSystem: 'dnaTires',
+      dnaStatus: 'monitor',
+    };
+  }
+
+  // Engine
+  if (msg.includes('động cơ') || msg.includes('máy rung') || msg.includes('nóng máy') || msg.includes('nước làm mát') || msg.includes('khói') || msg.includes('chảy dầu') || msg.includes('check engine')) {
+    const isUrgent = msg.includes('quá nhiệt') || msg.includes('báo đỏ') || msg.includes('khói đen');
+    return {
+      memoryType: 'symptom',
+      title: isUrgent ? 'Cảnh báo động cơ / quá nhiệt' : 'Theo dõi động cơ & làm mát',
+      severity: isUrgent ? 'urgent' : 'warning',
+      dnaSystem: 'dnaEngine',
+      dnaStatus: isUrgent ? 'urgent' : 'monitor',
+    };
+  }
+
+  // Electrical / Air conditioning
+  if (msg.includes('điều hòa') || msg.includes('máy lạnh') || msg.includes('đèn') || msg.includes('cầu chì') || msg.includes('cửa điện') || msg.includes('cốp')) {
+    return {
+      memoryType: 'symptom',
+      title: 'Ghi nhận hệ thống điện / điều hòa',
+      severity: 'info',
+      dnaSystem: 'dnaElectrical',
+      dnaStatus: 'monitor',
+    };
+  }
+
+  // Oil change recorded
+  if (msg.includes('đã thay dầu') || msg.includes('vừa thay nhớt') || msg.includes('mới thay dầu')) {
+    return {
+      memoryType: 'oil_change',
+      title: 'Ghi nhận thay dầu động cơ',
+      severity: 'info',
+      dnaSystem: 'dnaEngine',
+      dnaStatus: 'good',
+    };
+  }
+
+  return null;
+}
+
 
 function fuelTypeLabel(type: string): string {
   const labels: Record<string, string> = {

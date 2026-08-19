@@ -3,333 +3,275 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-interface ChatSessionItem {
+interface TimelineEntry {
   id: string;
+  date: string;
+  type: string;
   title: string;
-  theme: string;
-  createdAt: string;
-  updatedAt: string;
-  car?: { brand: string; model: string; year: number };
-  messages?: { content: string }[];
+  detail?: string;
+  cost?: number;
+  garage?: string;
+  km?: number;
+  source?: string;
+}
+
+type FilterType = 'all' | 'maintenance' | 'repair' | 'parts' | 'chat' | 'note';
+
+const TYPE_CONFIG: Record<string, { icon: string; color: string; bgCls: string; label: string }> = {
+  oil_change:   { icon: '🛢️', color: '#D97706', bgCls: 'timeline-icon-oil',        label: 'Thay dầu' },
+  tire:         { icon: '⭕',  color: '#3B82F6', bgCls: 'timeline-icon-parts',      label: 'Lốp xe' },
+  brake:        { icon: '🛞',  color: '#DC2626', bgCls: 'timeline-icon-repair',     label: 'Phanh' },
+  battery:      { icon: '🔋',  color: '#059669', bgCls: 'timeline-icon-parts',      label: 'Ắc quy' },
+  repair:       { icon: '🔧',  color: '#EF4444', bgCls: 'timeline-icon-repair',     label: 'Sửa chữa' },
+  parts:        { icon: '⚙️',  color: '#8B5CF6', bgCls: 'timeline-icon-parts',      label: 'Phụ tùng' },
+  inspection:   { icon: '📋',  color: '#2563EB', bgCls: 'timeline-icon-inspection', label: 'Đăng kiểm' },
+  insurance:    { icon: '🛡️',  color: '#059669', bgCls: 'timeline-icon-inspection', label: 'Bảo hiểm' },
+  symptom:      { icon: '⚠️',  color: '#F59E0B', bgCls: 'timeline-icon-note',       label: 'Triệu chứng' },
+  note:         { icon: '📝',  color: '#64748B', bgCls: 'timeline-icon-note',       label: 'Ghi chú' },
+  coolant:      { icon: '💧',  color: '#06B6D4', bgCls: 'timeline-icon-parts',      label: 'Nước làm mát' },
+  ac:           { icon: '❄️',  color: '#3B82F6', bgCls: 'timeline-icon-parts',      label: 'Điều hòa' },
+  chat:         { icon: '💬',  color: '#FF5500', bgCls: 'timeline-icon-ai',         label: 'AI Chat' },
+  maintenance:  { icon: '🔩',  color: '#8B5CF6', bgCls: 'timeline-icon-parts',      label: 'Bảo dưỡng' },
+  insight:      { icon: '💡',  color: '#F59E0B', bgCls: 'timeline-icon-ai',         label: 'AI Insight' },
+  other:        { icon: '🔧',  color: '#64748B', bgCls: 'timeline-icon-note',       label: 'Khác' },
+};
+
+function getTypeConf(type: string) {
+  return TYPE_CONFIG[type] || TYPE_CONFIG.other;
+}
+
+function formatDate(d: string) {
+  try {
+    const date = new Date(d);
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return d; }
+}
+
+function getYear(d: string) {
+  try { return new Date(d).getFullYear(); } catch { return 2025; }
+}
+
+function formatMoney(n?: number) {
+  if (!n) return null;
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M₫`;
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K₫`;
+  return `${n.toLocaleString('vi-VN')}₫`;
 }
 
 export default function HistoryPage() {
   const { data: session } = useSession();
-  const [sessions, setSessions] = useState<ChatSessionItem[]>([]);
+  const [memories, setMemories] = useState<TimelineEntry[]>([]);
+  const [services, setServices] = useState<TimelineEntry[]>([]);
+  const [sessions, setSessions] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-
-  const [userCars, setUserCars] = useState<any[]>([]);
-  const [selectedCarId, setSelectedCarId] = useState<string | null>('all');
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [carName, setCarName] = useState('');
+  const [carId, setCarId] = useState('');
 
   useEffect(() => {
-    // Check if there is an active local chat
-    const cachedMessages = localStorage.getItem('sparkgo_active_chat_messages');
-    if (cachedMessages) {
+    const savedCar = localStorage.getItem('sparkgo_car');
+    if (savedCar) {
       try {
-        const parsed = JSON.parse(cachedMessages);
-        if (parsed.length > 0) {
-          setActiveSessionId('active_local');
-        }
+        const c = JSON.parse(savedCar);
+        setCarName(`${c.brand} ${c.model}`);
+        setCarId(c.id || '');
       } catch {}
     }
 
     if (session?.user) {
-      fetch('/api/cars')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setUserCars(data);
-        })
-        .catch(() => {});
+      const localCar = savedCar ? JSON.parse(savedCar) : null;
+      const cid = localCar?.id;
 
-      fetch('/api/sessions')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setSessions(data);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+      Promise.all([
+        cid ? fetch(`/api/memory?carId=${cid}`).then(r => r.json()) : Promise.resolve([]),
+        cid ? fetch(`/api/services?carId=${cid}`).then(r => r.json()) : Promise.resolve([]),
+        fetch('/api/sessions').then(r => r.json()),
+      ]).then(([memData, svcData, sesData]) => {
+        // Memories
+        if (Array.isArray(memData)) {
+          setMemories(memData.map((m: any) => ({
+            id: m.id, date: m.date || m.createdAt,
+            type: m.memoryType, title: m.title,
+            detail: m.content?.startsWith('{') ? undefined : m.content,
+            source: m.source,
+          })));
+        }
+        // Service records
+        if (Array.isArray(svcData)) {
+          setServices(svcData.map((s: any) => ({
+            id: s.id, date: s.serviceDate,
+            type: s.serviceType || 'maintenance',
+            title: s.serviceName,
+            detail: s.notes,
+            cost: s.cost, garage: s.garageName, km: s.odometerKm,
+            source: 'service_record',
+          })));
+        }
+        // Chat sessions
+        if (Array.isArray(sesData)) {
+          setSessions(sesData.slice(0, 10).map((s: any) => ({
+            id: s.id, date: s.createdAt,
+            type: 'chat', title: s.title || 'Cuộc trò chuyện',
+            detail: s.car ? `${s.car.brand} ${s.car.model}` : undefined,
+            source: 'chat',
+          })));
+        }
+        setLoading(false);
+      }).catch(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, [session]);
 
+  // Combine and sort all timeline entries
+  const allEntries = useMemo(() => {
+    const combined = [...memories, ...services, ...sessions];
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [memories, services, sessions]);
 
-  const deleteSession = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Bạn có chắc chắn muốn xóa cuộc trò chuyện này?')) return;
+  const filtered = useMemo(() => {
+    if (filter === 'all') return allEntries;
+    if (filter === 'maintenance') return allEntries.filter(e => ['oil_change', 'tire', 'brake', 'battery', 'coolant', 'ac', 'maintenance', 'inspection'].includes(e.type));
+    if (filter === 'repair') return allEntries.filter(e => ['repair', 'symptom'].includes(e.type));
+    if (filter === 'parts') return allEntries.filter(e => ['parts'].includes(e.type));
+    if (filter === 'chat') return allEntries.filter(e => e.type === 'chat');
+    if (filter === 'note') return allEntries.filter(e => ['note', 'insight', 'other'].includes(e.type));
+    return allEntries;
+  }, [allEntries, filter]);
 
-    try {
-      const res = await fetch(`/api/sessions?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSessions(prev => prev.filter(s => s.id !== id));
-      }
-    } catch {}
-  };
-
-  // Smart Date & Car Grouping Logic
-  const groupedSessions = useMemo(() => {
-    const filtered = sessions.filter(s => {
-      // Filter by selectedCarId
-      if (selectedCarId && selectedCarId !== 'all') {
-        if ((s as any).carId !== selectedCarId && s.car?.brand !== userCars.find(c => c.id === selectedCarId)?.brand) {
-          return false;
-        }
-      }
-
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      const carText = s.car ? `${s.car.brand} ${s.car.model} ${s.car.year}`.toLowerCase() : '';
-      return s.title.toLowerCase().includes(q) || carText.includes(q);
+  // Group by year
+  const grouped = useMemo(() => {
+    const map = new Map<number, TimelineEntry[]>();
+    filtered.forEach(e => {
+      const y = getYear(e.date);
+      if (!map.has(y)) map.set(y, []);
+      map.get(y)!.push(e);
     });
+    return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
+  }, [filtered]);
 
-
-    const now = new Date();
-    const todayStr = now.toDateString();
-
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toDateString();
-
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-
-    const groups: { title: string; icon: string; items: ChatSessionItem[] }[] = [
-      { title: 'Hôm nay', icon: '🕒', items: [] },
-      { title: 'Hôm qua', icon: '📅', items: [] },
-      { title: '7 ngày qua', icon: '🗓️', items: [] },
-      { title: 'Cũ hơn', icon: '📁', items: [] },
-    ];
-
-    filtered.forEach(s => {
-      const d = new Date(s.updatedAt);
-      const dStr = d.toDateString();
-
-      if (dStr === todayStr) {
-        groups[0].items.push(s);
-      } else if (dStr === yesterdayStr) {
-        groups[1].items.push(s);
-      } else if (d > sevenDaysAgo) {
-        groups[2].items.push(s);
-      } else {
-        groups[3].items.push(s);
-      }
-    });
-
-    return groups.filter(g => g.items.length > 0);
-  }, [sessions, searchQuery, selectedCarId, userCars]);
-
+  // Total cost
+  const totalCost = useMemo(() => services.reduce((s, e) => s + (e.cost || 0), 0), [services]);
 
   return (
-    <>
-      <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Link href="/" className="navbar-logo">
-            <div className="navbar-logo-icon">⚡</div>
-            Spark<span>Go</span>
-          </Link>
-        </div>
-        <div className="navbar-actions">
-          <Link href="/chat" className="btn btn-primary btn-sm">💬 Quay lại Chat AI</Link>
-        </div>
-      </nav>
-
-      <div style={{ paddingTop: 'calc(var(--nav-height) + 24px)', paddingBottom: 80, maxWidth: 900, margin: '0 auto', paddingLeft: 20, paddingRight: 20 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-          <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-1)', marginBottom: 4 }}>
-              📜 Lịch Sử Tư Vấn
-            </h1>
-            <p style={{ color: 'var(--text-2)', fontSize: '0.9rem' }}>
-              Toàn bộ các cuộc trao đổi với AI thợ xe được tự động lưu trữ và phân loại theo thời gian.
-            </p>
+    <div className="history-page">
+      {/* Header */}
+      <div className="sg-header">
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>📜 Car Journal</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+            {carName || 'Nhật ký xe'} · {filtered.length} sự kiện
           </div>
-          <Link href="/chat" className="btn btn-primary">
-            + Cuộc trò chuyện mới
-          </Link>
         </div>
+        <Link href="/garage" style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange)', textDecoration: 'none' }}>
+          + Thêm
+        </Link>
+      </div>
 
-        {/* Active Local Session Notification Banner */}
-        {activeSessionId && (
-          <div style={{
-            background: 'var(--accent-muted)',
-            border: '1px solid var(--accent-border)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '14px 18px',
-            marginBottom: 24,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 22 }}>📌</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--accent-light)' }}>
-                  Bạn đang có cuộc trao đổi dở dang!
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
-                  Nội dung đang thảo luận được tự động giữ nguyên.
-                </div>
-              </div>
+      {/* Stats pills */}
+      {(services.length > 0 || memories.length > 0) && (
+        <div style={{ display: 'flex', gap: 8, padding: '12px 20px 0', flexWrap: 'wrap' }}>
+          <div style={{ background: 'var(--orange-pale)', border: '1px solid var(--orange-border)', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: 'var(--orange)' }}>
+            📊 {allEntries.length} sự kiện
+          </div>
+          {totalCost > 0 && (
+            <div style={{ background: 'var(--green-pale)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#059669' }}>
+              💰 Tổng {formatMoney(totalCost)}
             </div>
-            <Link href="/chat" className="btn btn-primary btn-sm">
-              Tiếp tục chat →
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 6, padding: '10px 20px 0', overflowX: 'auto' }}>
+        {([
+          { key: 'all',         label: 'Tất cả' },
+          { key: 'maintenance', label: '🔧 Bảo dưỡng' },
+          { key: 'repair',      label: '⚠️ Sửa chữa' },
+          { key: 'chat',        label: '💬 AI Chat' },
+          { key: 'note',        label: '📝 Ghi chú' },
+        ] as const).map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            style={{
+              flexShrink: 0, padding: '7px 14px', borderRadius: 999,
+              fontSize: 12, fontWeight: 700, border: '1.5px solid',
+              borderColor: filter === f.key ? 'var(--orange)' : 'var(--border)',
+              background: filter === f.key ? 'var(--orange)' : '#FFF',
+              color: filter === f.key ? '#FFF' : 'var(--text-2)',
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Timeline */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+          <div className="sg-spinner" style={{ width: 32, height: 32 }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="sg-empty" style={{ padding: '48px 20px' }}>
+          <div className="sg-empty-icon">📜</div>
+          <div className="sg-empty-title">Chưa có ghi nhận nào</div>
+          <div className="sg-empty-desc" style={{ marginBottom: 20 }}>
+            Nhật ký xe sẽ tự động cập nhật khi bạn dùng AI chat hoặc ghi nhận bảo dưỡng.
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href={carId ? `/chat?carId=${carId}` : '/chat'} style={{ padding: '12px 20px', background: 'var(--orange)', color: '#FFF', borderRadius: 12, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              💬 Chat với AI
+            </Link>
+            <Link href="/garage" style={{ padding: '12px 20px', background: '#FFF', border: '1.5px solid var(--border)', color: 'var(--text-1)', borderRadius: 12, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              🔧 Ghi bảo dưỡng
             </Link>
           </div>
-        )}
-
-        {/* Car Filter Pills Bar */}
-        {session?.user && userCars.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
-            <button
-              onClick={() => setSelectedCarId('all')}
-              className={`btn btn-sm ${selectedCarId === 'all' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ borderRadius: 100 }}
-            >
-              🚘 Tất cả xe ({sessions.length})
-            </button>
-            {userCars.map(c => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCarId(c.id)}
-                className={`btn btn-sm ${selectedCarId === c.id ? 'btn-primary' : 'btn-outline'}`}
-                style={{ borderRadius: 100 }}
-              >
-                🚗 {c.brand} {c.model} ({c.year})
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Search Bar */}
-        {session?.user && sessions.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <input
-              type="text"
-              className="chat-textarea"
-              placeholder="🔍 Tìm kiếm cuộc trò chuyện theo từ khóa hoặc tên xe..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border)',
-                background: 'var(--bg-surface)',
-                color: 'var(--text-1)',
-                fontSize: '0.9rem',
-              }}
-            />
-          </div>
-        )}
-
-        {/* Content */}
-        {!session?.user ? (
-          <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: 8, color: 'var(--text-1)' }}>
-              Đăng nhập để đồng bộ lịch sử trên mọi thiết bị
-            </h2>
-            <p style={{ color: 'var(--text-2)', marginBottom: 24, fontSize: '0.9rem', maxWidth: 460, margin: '0 auto 24px' }}>
-              Khi đăng nhập bằng Google, toàn bộ lịch sử tư vấn và hồ sơ xe của bạn sẽ được lưu bảo mật trong cơ sở dữ liệu.
-            </p>
-            <Link href="/login" className="btn btn-primary btn-lg">
-              🔑 Đăng nhập bằng Google
-            </Link>
-          </div>
-        ) : loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-2)' }}>
-            <div className="spinner" style={{ margin: '0 auto 16px' }} />
-            Đang tải lịch sử tư vấn...
-          </div>
-        ) : sessions.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>💬</div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 8, color: 'var(--text-1)' }}>
-              Chưa có lịch sử cuộc trò chuyện
-            </h2>
-            <p style={{ color: 'var(--text-2)', marginBottom: 24, fontSize: '0.88rem' }}>
-              Hãy hỏi AI thợ xe bất kỳ thắc mắc nào về chiếc xe của bạn.
-            </p>
-            <Link href="/chat" className="btn btn-primary btn-lg">
-              🚀 Bắt đầu trò chuyện ngay
-            </Link>
-          </div>
-        ) : groupedSessions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-2)' }}>
-            Không tìm thấy cuộc trò chuyện nào khớp với "{searchQuery}".
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-            {groupedSessions.map(group => (
-              <div key={group.title}>
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{group.icon}</span>
-                  <span>{group.title}</span>
-                  <span style={{ background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: 100, fontSize: '0.75rem' }}>{group.items.length}</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {group.items.map(s => (
-                    <div
-                      key={s.id}
-                      onClick={() => window.location.href = `/chat?sessionId=${s.id}`}
-                      className="card animate-fadeInUp"
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-
-                        padding: '16px 20px',
-                        cursor: 'pointer',
-                        transition: 'transform 0.15s ease, border-color 0.15s ease',
-                      }}
-                    >
-                      <div style={{ flex: 1, paddingRight: 16 }}>
-                        <div style={{ fontWeight: 700, fontSize: '1.02rem', color: 'var(--text-1)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span>💬 {s.title}</span>
-                          <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: 4, background: s.theme === 'pro' ? 'rgba(47,128,255,0.15)' : 'rgba(255,107,53,0.15)', color: s.theme === 'pro' ? 'var(--accent)' : 'var(--accent-light)' }}>
-                            {s.theme === 'pro' ? '🔧 Thầy Hùng' : '🤝 Minh'}
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                          {s.car && (
-                            <span>🚗 {s.car.brand} {s.car.model} {s.car.year}</span>
-                          )}
-                          <span>🕒 {new Date(s.updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
+        </div>
+      ) : (
+        <div style={{ padding: '16px 20px' }}>
+          {grouped.map(([year, entries]) => (
+            <div key={year}>
+              <div className="timeline-year">{year}</div>
+              <div className="timeline">
+                {entries.map((entry, idx) => {
+                  const conf = getTypeConf(entry.type);
+                  return (
+                    <div key={entry.id} className="timeline-item">
+                      <div className={`timeline-icon-wrap ${conf.bgCls}`} style={{ background: undefined }}>
+                        {conf.icon}
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <button
-                          onClick={e => deleteSession(s.id, e)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-3)',
-                            padding: 8,
-                            fontSize: 16,
-                            borderRadius: 6,
-                          }}
-                          title="Xóa cuộc trò chuyện"
-                        >
-                          🗑️
-                        </button>
-                        <span style={{ fontSize: 18, color: 'var(--text-3)' }}>→</span>
+                      <div className="timeline-content">
+                        <div className="timeline-content-title">{entry.title}</div>
+                        <div className="timeline-content-meta">
+                          {formatDate(entry.date)}
+                          {entry.km && ` · ${entry.km.toLocaleString('vi-VN')} km`}
+                          {entry.garage && ` · ${entry.garage}`}
+                        </div>
+                        {entry.detail && (
+                          <div className="timeline-content-detail">{entry.detail}</div>
+                        )}
+                        {entry.cost && (
+                          <div className="timeline-content-cost">{formatMoney(entry.cost)}</div>
+                        )}
+                        {entry.type === 'chat' && (
+                          <Link
+                            href={`/chat?sessionId=${entry.id}`}
+                            style={{ fontSize: 11, color: 'var(--orange)', fontWeight: 700, marginTop: 4, display: 'inline-block', textDecoration: 'none' }}
+                          >
+                            Xem cuộc trò chuyện ›
+                          </Link>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
